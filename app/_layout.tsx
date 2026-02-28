@@ -6,10 +6,6 @@ import migrations from '@db/migrations/migrations';
 import { useTaskStore, usePointsStore, useRewardsStore, useCategoryStore, useSettingsStore } from '@store/index';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { seedDefaults } from '@db/seed';
-import {
-  requestNotificationPermissions,
-  scheduleDailyReminder,
-} from '@lib/notifications';
 import '../global.css';
 
 export default function RootLayout() {
@@ -33,23 +29,30 @@ export default function RootLayout() {
         loadSettings(),
       ]);
 
-      // After settings are loaded, check notification preferences
-      const { notificationsEnabled, notificationHour, notificationMinute } =
-        useSettingsStore.getState();
+      // Schedule daily reminder if enabled — wrapped so any failure doesn't block the app
+      try {
+        const { notificationsEnabled, notificationHour, notificationMinute } =
+          useSettingsStore.getState();
 
-      if (notificationsEnabled) {
-        const granted = await requestNotificationPermissions();
-        if (granted) {
-          await scheduleDailyReminder(notificationHour, notificationMinute);
+        if (notificationsEnabled) {
+          const { requestNotificationPermissions, scheduleDailyReminder } =
+            await import('@lib/notifications');
+          const granted = await requestNotificationPermissions();
+          if (granted) {
+            await scheduleDailyReminder(notificationHour, notificationMinute);
+          }
         }
+      } catch (e) {
+        console.warn('Notification setup failed (non-fatal):', e);
       }
     })();
   }, [success]);
 
   if (error) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <Text style={{ color: '#ef4444' }}>Migration failed: {error.message}</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 24 }}>
+        <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 16, marginBottom: 8 }}>Migration error</Text>
+        <Text style={{ color: '#64748b', fontSize: 13, textAlign: 'center' }}>{error.message}</Text>
       </View>
     );
   }
