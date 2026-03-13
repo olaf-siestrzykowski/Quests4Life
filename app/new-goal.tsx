@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { KeyboardAvoidingView, Platform, View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@components/Screen';
 import { format } from 'date-fns';
 import { useTaskStore } from '@store/index';
 import { ScheduleRulePicker } from '@components/ScheduleRulePicker';
 import { CategoryPicker } from '@components/CategoryPicker';
 import type { ScheduleRule } from '@lib/recurrence';
 import { serializeRule } from '@lib/recurrence';
+import { GOAL_TEMPLATES } from '@lib/goalTemplates';
 
 const BONUS_PRESETS = [25, 50, 100, 200, 500];
 
 export default function NewGoalScreen() {
   const addTask = useTaskStore((s) => s.addTask);
   const today   = format(new Date(), 'yyyy-MM-dd');
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const [title, setTitle]           = useState('');
   const [description, setDescription] = useState('');
@@ -43,8 +45,37 @@ export default function NewGoalScreen() {
     router.back();
   };
 
+  const handleUseTemplate = async (templateId: string) => {
+    const tpl = GOAL_TEMPLATES.find((t) => t.id === templateId);
+    if (!tpl) return;
+    setShowTemplates(false);
+    const goal = await addTask({
+      title: tpl.goal.title,
+      description: tpl.goal.description,
+      categoryId: null,
+      scheduleRule: serializeRule(tpl.goal.rule),
+      pointValue: 0,
+      bonusPoints: tpl.goal.bonusPoints,
+      isGoal: true,
+      parentGoalId: null,
+    });
+    for (const t of tpl.tasks) {
+      await addTask({
+        title: t.title,
+        description: null,
+        categoryId: null,
+        scheduleRule: serializeRule(t.rule),
+        pointValue: t.pointValue,
+        isGoal: false,
+        bonusPoints: 0,
+        parentGoalId: goal.id,
+      });
+    }
+    router.back();
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
       {/* Nav bar */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -56,6 +87,29 @@ export default function NewGoalScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Template picker */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
+        <TouchableOpacity onPress={() => setShowTemplates((v) => !v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+          <Text style={{ fontSize: 13, color: '#0ea5e9', fontWeight: '600' }}>
+            {showTemplates ? 'Hide templates ▲' : 'Use a template ▼'}
+          </Text>
+        </TouchableOpacity>
+        {showTemplates && (
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            {GOAL_TEMPLATES.map((tpl) => (
+              <TouchableOpacity
+                key={tpl.id}
+                onPress={() => handleUseTemplate(tpl.id)}
+                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd' }}
+              >
+                <Text style={{ fontSize: 13, color: '#0369a1', fontWeight: '600' }}>{tpl.emoji} {tpl.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 40 }}
@@ -128,7 +182,8 @@ export default function NewGoalScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

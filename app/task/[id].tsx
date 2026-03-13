@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { KeyboardAvoidingView, Platform, View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@components/Screen';
 import { useTaskStore } from '@store/index';
 import { useCategoryStore } from '@store/index';
 import { CategoryPicker } from '@components/CategoryPicker';
@@ -31,12 +31,12 @@ export default function TaskDetailScreen() {
 
   if (!task) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+      <Screen backgroundColor="#fff" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: '#94a3b8' }}>Task not found.</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12 }}>
           <Text style={{ color: '#0ea5e9' }}>Go back</Text>
         </TouchableOpacity>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -69,7 +69,7 @@ export default function TaskDetailScreen() {
   const markDirty = (fn: () => void) => { fn(); setDirty(true); };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
       {/* Nav bar */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -83,6 +83,7 @@ export default function TaskDetailScreen() {
         </TouchableOpacity>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 40 }}
@@ -156,7 +157,8 @@ export default function TaskDetailScreen() {
           <Text style={{ fontSize: 15, color: '#ef4444', fontWeight: '600' }}>Archive Task</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

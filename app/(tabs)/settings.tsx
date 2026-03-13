@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Platform, Share } from 'react-native';
+import { Screen } from '@components/Screen';
 import { useCategoryStore, useSettingsStore } from '@store/index';
 import {
   requestNotificationPermissions,
   scheduleDailyReminder,
   cancelAllReminders,
+  sendTestNotification,
+  getPermissionStatus,
 } from '@lib/notifications';
+import { db } from '@db/index';
+import { tasks, completions, pointsLedger, rewards, categories as categoriesTable, appSettings } from '@db/schema';
 
 const PRESET_COLORS = [
   '#ef4444', '#f97316', '#eab308', '#22c55e',
@@ -28,12 +32,26 @@ export default function SettingsScreen() {
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled);
   const setNotificationTime   = useSettingsStore((s) => s.setNotificationTime);
 
+  const hapticsEnabled        = useSettingsStore((s) => s.hapticsEnabled);
+  const defaultPointValue     = useSettingsStore((s) => s.defaultPointValue);
+  const streakBonusEnabled    = useSettingsStore((s) => s.streakBonusEnabled);
+  const setHapticsEnabled     = useSettingsStore((s) => s.setHapticsEnabled);
+  const setDefaultPointValue  = useSettingsStore((s) => s.setDefaultPointValue);
+  const setStreakBonusEnabled = useSettingsStore((s) => s.setStreakBonusEnabled);
+
   const [name, setName]     = useState('');
   const [color, setColor]   = useState(PRESET_COLORS[3]);
   const [adding, setAdding] = useState(false);
 
   const [hourInput, setHourInput]     = useState(String(notificationHour));
   const [minuteInput, setMinuteInput] = useState(pad(notificationMinute));
+  const [permStatus, setPermStatus]   = useState<'granted' | 'denied' | 'undetermined' | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      getPermissionStatus().then(setPermStatus);
+    }
+  }, []);
 
   const handleAdd = async () => {
     const trimmed = name.trim();
@@ -54,6 +72,8 @@ export default function SettingsScreen() {
   const handleToggleNotifications = async (value: boolean) => {
     if (value) {
       const granted = await requestNotificationPermissions();
+      const newStatus = await getPermissionStatus();
+      setPermStatus(newStatus);
       if (!granted) {
         Alert.alert(
           'Permission needed',
@@ -67,6 +87,77 @@ export default function SettingsScreen() {
       await setNotificationsEnabled(false);
       await cancelAllReminders();
     }
+  };
+
+  const handleTestNotification = async () => {
+    const granted = await requestNotificationPermissions();
+    if (!granted) {
+      Alert.alert('Permission denied', 'Enable notifications first.');
+      return;
+    }
+    await sendTestNotification();
+    Alert.alert('Sent!', 'You should receive a test notification in ~1 second.');
+  };
+
+  const handleExport = async () => {
+    try {
+      const [allTasks, allCompletions, allPoints, allRewards, allCategories] = await Promise.all([
+        db.select().from(tasks),
+        db.select().from(completions),
+        db.select().from(pointsLedger),
+        db.select().from(rewards),
+        db.select().from(categoriesTable),
+      ]);
+      const data = JSON.stringify({ tasks: allTasks, completions: allCompletions, points: allPoints, rewards: allRewards, categories: allCategories }, null, 2);
+      if (Platform.OS === 'web') {
+        Alert.alert('Export (web)', 'Open browser console to copy your data.', [{ text: 'OK' }]);
+        console.log('=== quests4life export ===\n', data);
+        return;
+      }
+      await Share.share({ message: data, title: 'quests4life data export' });
+    } catch {
+      Alert.alert('Export failed', 'Could not export data.');
+    }
+  };
+
+  const handleReset = () => {
+    Alert.alert(
+      'Reset all data?',
+      'This will permanently delete ALL tasks, goals, completions, points, rewards, and categories. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Type "RESET" in your mind and confirm. All data will be erased.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await db.delete(completions);
+                      await db.delete(pointsLedger);
+                      await db.delete(tasks);
+                      await db.delete(rewards);
+                      await db.delete(categoriesTable);
+                      await db.delete(appSettings);
+                      Alert.alert('Done', 'All data has been reset. Restart the app to start fresh.');
+                    } catch {
+                      Alert.alert('Error', 'Reset failed. Please try again.');
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
   };
 
   const handleSaveTime = async () => {
@@ -84,7 +175,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top']}>
+    <Screen edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
         <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a', marginBottom: 20 }}>Settings</Text>
 
@@ -94,7 +185,19 @@ export default function SettingsScreen() {
           {/* Toggle */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Daily reminder</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Daily reminder</Text>
+                {permStatus !== null && (
+                  <View style={{
+                    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+                    backgroundColor: permStatus === 'granted' ? '#dcfce7' : permStatus === 'denied' ? '#fee2e2' : '#f1f5f9',
+                  }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: permStatus === 'granted' ? '#16a34a' : permStatus === 'denied' ? '#dc2626' : '#64748b' }}>
+                      {permStatus === 'granted' ? 'GRANTED' : permStatus === 'denied' ? 'DENIED' : 'NOT ASKED'}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
                 Get nudged every day at a set time
               </Text>
@@ -138,6 +241,12 @@ export default function SettingsScreen() {
                   <Text style={{ fontSize: 13, color: '#fff', fontWeight: '600' }}>Save</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                onPress={handleTestNotification}
+                style={{ marginTop: 10, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#f1f5f9', alignSelf: 'flex-start' }}
+              >
+                <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>Send test now</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -218,8 +327,96 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
+        {/* ── Preferences ───────────────────────────────────── */}
+        <Text style={[sectionLabel, { marginTop: 24 }]}>Preferences</Text>
+        <View style={card}>
+          {/* Haptics toggle */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Haptic feedback</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Vibration on task completion</Text>
+            </View>
+            <Switch
+              value={hapticsEnabled}
+              onValueChange={setHapticsEnabled}
+              trackColor={{ false: '#e2e8f0', true: '#bae6fd' }}
+              thumbColor={hapticsEnabled ? '#0ea5e9' : '#cbd5e1'}
+            />
+          </View>
+          {/* Streak bonus */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Streak bonus</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>+10/20/30% pts on 3/7/14-day streaks</Text>
+            </View>
+            <Switch
+              value={streakBonusEnabled}
+              onValueChange={setStreakBonusEnabled}
+              trackColor={{ false: '#e2e8f0', true: '#bae6fd' }}
+              thumbColor={streakBonusEnabled ? '#0ea5e9' : '#cbd5e1'}
+            />
+          </View>
+
+          {/* Default point value */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Default points</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Pre-filled value when creating tasks</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setDefaultPointValue(Math.max(1, defaultPointValue - 5))}
+                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 18, color: '#64748b' }}>−</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1e293b', minWidth: 28, textAlign: 'center' }}>{defaultPointValue}</Text>
+              <TouchableOpacity
+                onPress={() => setDefaultPointValue(Math.min(100, defaultPointValue + 5))}
+                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ fontSize: 18, color: '#64748b' }}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Data ──────────────────────────────────────────── */}
+        <Text style={[sectionLabel, { marginTop: 24 }]}>Data</Text>
+        <View style={card}>
+          <TouchableOpacity
+            onPress={handleExport}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Export data</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Save all tasks, goals, and history as JSON</Text>
+            </View>
+            <Text style={{ fontSize: 18, color: '#94a3b8' }}>↑</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleReset}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, color: '#ef4444', fontWeight: '500' }}>Reset all data</Text>
+              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Permanently erase everything</Text>
+            </View>
+            <Text style={{ fontSize: 18, color: '#fca5a5' }}>×</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── About ─────────────────────────────────────────── */}
+        <Text style={[sectionLabel, { marginTop: 24 }]}>About</Text>
+        <View style={card}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
+            <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>quests4life</Text>
+            <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Version 1.0.0 · Built with Expo + React Native</Text>
+            <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Your data stays on your device.</Text>
+          </View>
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -4,6 +4,7 @@ import { pointsLedger } from '@db/schema';
 import type { PointEntry, NewPointEntry } from '@db/schema';
 import { newId } from '@lib/ids';
 import { format } from 'date-fns';
+import { and, eq, like } from 'drizzle-orm';
 
 interface PointsStore {
   balance: number;
@@ -14,7 +15,7 @@ interface PointsStore {
     reason: string,
     meta?: { taskId?: string; rewardId?: string },
   ) => Promise<void>;
-  wasGoalBonusGrantedToday: (goalId: string) => boolean;
+  wasGoalBonusGrantedToday: (goalId: string) => Promise<boolean>;
 }
 
 export const usePointsStore = create<PointsStore>((set, get) => ({
@@ -45,13 +46,19 @@ export const usePointsStore = create<PointsStore>((set, get) => ({
     }));
   },
 
-  wasGoalBonusGrantedToday: (goalId) => {
+  wasGoalBonusGrantedToday: async (goalId) => {
     const todayPrefix = format(new Date(), 'yyyy-MM-dd');
-    return get().history.some(
-      (e) =>
-        e.reason === 'goal_bonus' &&
-        e.taskId === goalId &&
-        (e.createdAt ?? '').startsWith(todayPrefix),
-    );
+    const rows = await db
+      .select({ id: pointsLedger.id })
+      .from(pointsLedger)
+      .where(
+        and(
+          eq(pointsLedger.reason, 'goal_bonus'),
+          eq(pointsLedger.taskId, goalId),
+          like(pointsLedger.createdAt, `${todayPrefix}%`),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
   },
 }));

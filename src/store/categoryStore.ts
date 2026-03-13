@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { db } from '@db/index';
-import { categories } from '@db/schema';
+import { categories, tasks } from '@db/schema';
 import type { Category, NewCategory } from '@db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 import { newId } from '@lib/ids';
 
 interface CategoryStore {
@@ -30,6 +30,8 @@ export const useCategoryStore = create<CategoryStore>((set) => ({
   },
 
   removeCategory: async (id) => {
+    // NULL-out tasks that reference this category before deleting it
+    await db.update(tasks).set({ categoryId: null }).where(eq(tasks.categoryId, id));
     await db.delete(categories).where(eq(categories.id, id));
     set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
   },

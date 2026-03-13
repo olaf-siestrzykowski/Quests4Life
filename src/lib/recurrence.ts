@@ -82,6 +82,31 @@ export function dueDatesInRange(rule: ScheduleRule, from: Date, to: Date): strin
   return results;
 }
 
+// ─── Display helpers ──────────────────────────────────────────────────────────
+
+const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Human-readable one-line summary of a schedule rule. */
+export function formatRuleSummary(rule: ScheduleRule): string {
+  switch (rule.type) {
+    case 'once':
+      return `Once · ${rule.date}`;
+    case 'daily':
+      return 'Daily';
+    case 'weekly': {
+      const sorted = rule.daysOfWeek.slice().sort((a, b) => a - b);
+      if (sorted.length === 5 && sorted.every((d, i) => d === i + 1))
+        return 'Weekdays';
+      if (sorted.length === 7) return 'Every day';
+      return sorted.map((d) => DAY_ABBR[d]).join(', ');
+    }
+    case 'monthly':
+      return `Monthly · day ${rule.dayOfMonth}`;
+    case 'custom':
+      return `Every ${rule.intervalDays} day${rule.intervalDays !== 1 ? 's' : ''}`;
+  }
+}
+
 // ─── Serialisation ────────────────────────────────────────────────────────────
 
 export function serializeRule(rule: ScheduleRule): string {
@@ -89,5 +114,17 @@ export function serializeRule(rule: ScheduleRule): string {
 }
 
 export function deserializeRule(json: string): ScheduleRule {
-  return JSON.parse(json) as ScheduleRule;
+  try {
+    const parsed = JSON.parse(json);
+    if (!parsed || typeof parsed !== 'object') throw new Error('not an object');
+    switch (parsed.type) {
+      case 'once':    if (typeof parsed.date === 'string') return parsed as ScheduleRule; break;
+      case 'daily':   if (typeof parsed.startDate === 'string') return parsed as ScheduleRule; break;
+      case 'weekly':  if (Array.isArray(parsed.daysOfWeek) && typeof parsed.startDate === 'string') return parsed as ScheduleRule; break;
+      case 'monthly': if (typeof parsed.dayOfMonth === 'number' && typeof parsed.startDate === 'string') return parsed as ScheduleRule; break;
+      case 'custom':  if (typeof parsed.intervalDays === 'number' && typeof parsed.startDate === 'string') return parsed as ScheduleRule; break;
+    }
+  } catch {}
+  // Fallback: daily from today — keeps the task visible rather than crashing
+  return { type: 'daily', startDate: new Date().toISOString().slice(0, 10) };
 }

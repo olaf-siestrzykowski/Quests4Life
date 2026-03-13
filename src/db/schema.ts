@@ -27,6 +27,8 @@ export const tasks = sqliteTable('tasks', {
   isGoal:        int('is_goal', { mode: 'boolean' }).notNull().default(false),
   // bonus points awarded when all child tasks of this goal are completed
   bonusPoints:   int('bonus_points').notNull().default(0),
+  // 'easy' = 0.5×, 'normal' = 1×, 'hard' = 2× of pointValue at completion
+  difficulty:    text('difficulty').default('normal'),
   sortOrder:     int('sort_order').notNull().default(0),
   archivedAt:    text('archived_at'),
   createdAt:     text('created_at').notNull().default(sql`(datetime('now'))`),
@@ -66,6 +68,15 @@ export const rewards = sqliteTable('rewards', {
   createdAt:     text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 
+// ─── Achievements ─────────────────────────────────────────────────────────────
+
+export const achievements = sqliteTable('achievements', {
+  id:          text('id').primaryKey(),
+  key:         text('key').notNull().unique(),    // e.g. 'first_task', 'streak_7'
+  unlockedAt:  text('unlocked_at').notNull().default(sql`(datetime('now'))`),
+  seen:        int('seen', { mode: 'boolean' }).notNull().default(false),
+});
+
 // ─── App Settings (key-value store for preferences) ─────────────────────────
 
 export const appSettings = sqliteTable('app_settings', {
@@ -81,6 +92,7 @@ export type Completion  = typeof completions.$inferSelect;
 export type PointEntry  = typeof pointsLedger.$inferSelect;
 export type Reward      = typeof rewards.$inferSelect;
 
+export type Achievement   = typeof achievements.$inferSelect;
 export type NewCategory   = typeof categories.$inferInsert;
 export type NewTask       = typeof tasks.$inferInsert;
 export type NewCompletion = typeof completions.$inferInsert;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { KeyboardAvoidingView, Platform, View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@components/Screen';
 import { useRewardsStore } from '@store/index';
 
 const COST_PRESETS = [50, 100, 200, 500, 1000];
@@ -34,7 +34,7 @@ export default function NewRewardScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
       {/* Nav bar */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -46,6 +46,7 @@ export default function NewRewardScreen() {
         </TouchableOpacity>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 40 }}
@@ -120,7 +121,8 @@ export default function NewRewardScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

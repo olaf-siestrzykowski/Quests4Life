@@ -15,6 +15,20 @@
       "when": 1772243200000,
       "tag": "0001_app_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1772400000000,
+      "tag": "0002_task_difficulty",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1772401000000,
+      "tag": "0003_achievements",
+      "breakpoints": true
     }
   ]
 }

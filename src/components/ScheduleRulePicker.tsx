@@ -11,7 +11,7 @@ const TYPES: { key: ScheduleRule['type']; label: string }[] = [
   { key: 'custom',  label: 'Custom'  },
 ];
 
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 type Props = {
   value: ScheduleRule;
@@ -81,9 +81,26 @@ export function ScheduleRulePicker({ value, onChange }: Props) {
         </View>
       )}
 
-      {/* Daily — nothing extra */}
+      {/* Daily — weekdays shortcut */}
       {value.type === 'daily' && (
-        <Text style={{ fontSize: 13, color: '#94a3b8' }}>Repeats every day starting today.</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 13, color: '#94a3b8' }}>Every day.</Text>
+          <TouchableOpacity
+            onPress={() =>
+              onChange({ type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5], startDate: today })
+            }
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 5,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: '#e2e8f0',
+              backgroundColor: '#f8fafc',
+            }}
+          >
+            <Text style={{ fontSize: 12, color: '#475569' }}>Weekdays only →</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Weekly — day-of-week buttons */}
@@ -170,6 +187,28 @@ export function ScheduleRulePicker({ value, onChange }: Props) {
             }}
           />
           <Text style={{ fontSize: 14, color: '#475569' }}>days</Text>
+        </View>
+      )}
+
+      {/* Start date navigator — shown for all recurring rules except 'once' */}
+      {value.type !== 'once' && 'startDate' in value && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <Text style={{ fontSize: 12, color: '#94a3b8', width: 60 }}>Starts:</Text>
+          <TouchableOpacity
+            onPress={() => onChange({ ...value, startDate: format(addDays(parseISO(value.startDate), -1), 'yyyy-MM-dd') } as typeof value)}
+            style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ fontSize: 16, color: '#475569' }}>‹</Text>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 13, fontWeight: '500', color: '#1e293b', minWidth: 100, textAlign: 'center' }}>
+            {format(parseISO(value.startDate), 'EEE, MMM d')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => onChange({ ...value, startDate: format(addDays(parseISO(value.startDate), 1), 'yyyy-MM-dd') } as typeof value)}
+            style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ fontSize: 16, color: '#475569' }}>›</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>

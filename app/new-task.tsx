@@ -1,25 +1,30 @@
 import { useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { KeyboardAvoidingView, Platform, View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@components/Screen';
 import { format } from 'date-fns';
 import { useTaskStore } from '@store/index';
+import { useSettingsStore } from '@store/index';
 import { ScheduleRulePicker } from '@components/ScheduleRulePicker';
 import { CategoryPicker } from '@components/CategoryPicker';
 import type { ScheduleRule } from '@lib/recurrence';
 import { serializeRule } from '@lib/recurrence';
+import type { Difficulty } from '@lib/difficulty';
+import { DIFFICULTY_LABELS } from '@lib/difficulty';
 
 const POINT_PRESETS = [5, 10, 15, 25, 50];
 
 export default function NewTaskScreen() {
   const { goalId } = useLocalSearchParams<{ goalId?: string }>();
-  const addTask    = useTaskStore((s) => s.addTask);
-  const today      = format(new Date(), 'yyyy-MM-dd');
+  const addTask          = useTaskStore((s) => s.addTask);
+  const defaultPointValue = useSettingsStore((s) => s.defaultPointValue);
+  const today            = format(new Date(), 'yyyy-MM-dd');
 
   const [title, setTitle]           = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [pointValue, setPointValue] = useState(10);
+  const [pointValue, setPointValue] = useState(() => defaultPointValue);
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [rule, setRule]             = useState<ScheduleRule>({ type: 'daily', startDate: today });
 
   const handleSubmit = async () => {
@@ -33,6 +38,7 @@ export default function NewTaskScreen() {
       categoryId,
       scheduleRule: serializeRule(rule),
       pointValue,
+      difficulty,
       parentGoalId: goalId ?? null,
       isGoal: false,
       bonusPoints: 0,
@@ -41,7 +47,7 @@ export default function NewTaskScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
       {/* Nav bar */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -53,6 +59,7 @@ export default function NewTaskScreen() {
         </TouchableOpacity>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 40 }}
@@ -95,6 +102,39 @@ export default function NewTaskScreen() {
         <View>
           <Text style={styles.label}>Schedule</Text>
           <ScheduleRulePicker value={rule} onChange={setRule} />
+        </View>
+
+        {/* Difficulty */}
+        <View>
+          <Text style={styles.label}>Difficulty</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => {
+              const active = difficulty === d;
+              const colors = { easy: '#22c55e', normal: '#0ea5e9', hard: '#ef4444' };
+              return (
+                <TouchableOpacity
+                  key={d}
+                  onPress={() => setDifficulty(d)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    borderWidth: 1.5,
+                    alignItems: 'center',
+                    backgroundColor: active ? colors[d] : '#fff',
+                    borderColor: active ? colors[d] : '#e2e8f0',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : '#475569' }}>
+                    {DIFFICULTY_LABELS[d]}
+                  </Text>
+                  <Text style={{ fontSize: 10, color: active ? 'rgba(255,255,255,0.8)' : '#94a3b8', marginTop: 1 }}>
+                    {d === 'easy' ? '×0.5' : d === 'hard' ? '×2' : '×1'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Points */}
@@ -142,7 +182,8 @@ export default function NewTaskScreen() {
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

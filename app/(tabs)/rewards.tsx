@@ -1,7 +1,7 @@
 import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { Screen } from '@components/Screen';
+import * as Haptics from '@lib/haptics';
 import { useRewardsStore, usePointsStore } from '@store/index';
 import type { Reward } from '@db/schema';
 
@@ -54,7 +54,7 @@ export default function RewardsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top']}>
+    <Screen edges={['top']}>
       {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -159,6 +159,6 @@ export default function RewardsScreen() {
       >
         <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32 }}>+</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </Screen>
   );
 }

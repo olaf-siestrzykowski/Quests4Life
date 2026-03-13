@@ -47,3 +47,20 @@ export async function scheduleDailyReminder(hour: number, minute: number): Promi
 export async function cancelAllReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
+
+export async function sendTestNotification(): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Test notification 🌟',
+      body: 'Notifications are working!',
+      ...(Platform.OS === 'android' ? { channelId: 'daily-reminder' } : {}),
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1 },
+  });
+}
+
+export async function getPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
+  if (Platform.OS === 'web') return 'undetermined';
+  const { status } = await Notifications.getPermissionsAsync();
+  return status as 'granted' | 'denied' | 'undetermined';
+}
