@@ -3,6 +3,9 @@ import { db } from '@db/index';
 import { appSettings } from '@db/schema';
 import { eq } from 'drizzle-orm';
 
+type SortMode = 'default' | 'points_desc' | 'alpha' | 'category';
+type ViewMode = 'list' | 'compact';
+
 interface SettingsStore {
   notificationsEnabled: boolean;
   notificationHour: number;
@@ -10,12 +13,16 @@ interface SettingsStore {
   hapticsEnabled: boolean;
   defaultPointValue: number;
   streakBonusEnabled: boolean;
+  sortMode: SortMode;
+  viewMode: ViewMode;
   load: () => Promise<void>;
   setNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setNotificationTime: (hour: number, minute: number) => Promise<void>;
   setHapticsEnabled: (v: boolean) => Promise<void>;
   setDefaultPointValue: (v: number) => Promise<void>;
   setStreakBonusEnabled: (v: boolean) => Promise<void>;
+  setSortMode: (v: SortMode) => Promise<void>;
+  setViewMode: (v: ViewMode) => Promise<void>;
 }
 
 async function upsertSetting(key: string, value: string) {
@@ -32,6 +39,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   hapticsEnabled: true,
   defaultPointValue: 10,
   streakBonusEnabled: false,
+  sortMode: 'default',
+  viewMode: 'list',
 
   load: async () => {
     const rows = await db.select().from(appSettings);
@@ -44,6 +53,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       hapticsEnabled: map['haptics_enabled'] !== 'false',
       defaultPointValue: parseInt(map['default_point_value'] ?? '10', 10),
       streakBonusEnabled: map['streak_bonus_enabled'] === 'true',
+      sortMode: (map['sort_mode'] ?? 'default') as SortMode,
+      viewMode: (map['view_mode'] ?? 'list') as ViewMode,
     });
   },
 
@@ -73,5 +84,15 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setStreakBonusEnabled: async (v) => {
     await upsertSetting('streak_bonus_enabled', String(v));
     set({ streakBonusEnabled: v });
+  },
+
+  setSortMode: async (v) => {
+    await upsertSetting('sort_mode', v);
+    set({ sortMode: v });
+  },
+
+  setViewMode: async (v) => {
+    await upsertSetting('view_mode', v);
+    set({ viewMode: v });
   },
 }));

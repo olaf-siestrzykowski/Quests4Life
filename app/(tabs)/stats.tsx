@@ -8,6 +8,7 @@ import { ACHIEVEMENT_DEFS } from '@store/achievementsStore';
 import { db } from '@db/index';
 import { completions, tasks, pointsLedger } from '@db/schema';
 import { gte, lte, eq, and } from 'drizzle-orm';
+import type { Task } from '@db/schema';
 
 const REASON_LABEL: Record<string, string> = {
   task_complete:   'Task completed',
@@ -102,10 +103,11 @@ function StreakCalendar({ completedDates }: { completedDates: Set<string> }) {
 interface CategoryStat { name: string; color: string; points: number }
 
 export default function StatsScreen() {
-  const history     = usePointsStore((s) => s.history);
-  const balance     = usePointsStore((s) => s.balance);
-  const storeTasks  = useTaskStore((s) => s.tasks);
-  const unlocked    = useAchievementsStore((s) => s.unlocked);
+  const history              = usePointsStore((s) => s.history);
+  const balance              = usePointsStore((s) => s.balance);
+  const storeTasks           = useTaskStore((s) => s.tasks);
+  const completedTodayIds    = useTaskStore((s) => s.completedTodayIds);
+  const unlocked             = useAchievementsStore((s) => s.unlocked);
 
   const [streak, setStreak] = useState(0);
   const [totalCompleted, setTotalCompleted] = useState(0);
@@ -292,9 +294,17 @@ export default function StatsScreen() {
     <Screen edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a' }}>Stats</Text>
-          <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 1 }}>Your progress over time</Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <View>
+            <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a' }}>Stats</Text>
+            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 1 }}>Your progress over time</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/weekly-review')}
+            style={{ backgroundColor: '#f0f9ff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: '#bae6fd', marginTop: 4 }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#0369a1' }}>Weekly Review →</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Achievements banner */}
@@ -383,6 +393,54 @@ export default function StatsScreen() {
             <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>active goals</Text>
           </View>
         </View>
+
+        {/* Goals at a glance */}
+        {(() => {
+          const activeGoals = storeTasks.filter((t) => t.isGoal && !t.archivedAt);
+          if (activeGoals.length === 0) return null;
+
+          return (
+            <ChartCard title="Goals — today's progress">
+              {activeGoals.map((goal) => {
+                const children = storeTasks.filter((t) => t.parentGoalId === goal.id && !t.archivedAt);
+                const doneToday = children.filter((t) => completedTodayIds.has(t.id)).length;
+                const total = children.length;
+                const progress = total > 0 ? doneToday / total : 0;
+                const isComplete = total > 0 && doneToday === total;
+
+                return (
+                  <TouchableOpacity
+                    key={goal.id}
+                    onPress={() => router.push(`/goal/${goal.id}`)}
+                    style={{ marginBottom: 14 }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                      <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: isComplete ? '#22c55e' : '#1e293b' }}>
+                        {isComplete ? '✓ ' : ''}{goal.title}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#94a3b8' }}>
+                        {doneToday}/{total}
+                      </Text>
+                    </View>
+                    <View style={{ height: 5, backgroundColor: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                      <View
+                        style={{
+                          height: '100%',
+                          width: `${Math.round(progress * 100)}%`,
+                          backgroundColor: isComplete ? '#22c55e' : '#0ea5e9',
+                          borderRadius: 3,
+                        }}
+                      />
+                    </View>
+                    {total === 0 && (
+                      <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>No child tasks</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ChartCard>
+          );
+        })()}
 
         {/* Personal bests */}
         {(bestDayPts > 0 || bestDayTaskCount > 0) && (

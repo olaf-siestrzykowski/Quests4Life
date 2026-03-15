@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, View, Text, FlatList, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
+import { AppState, View, Text, FlatList, SectionList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Screen } from '@components/Screen';
 import { MonthCalendar } from '@components/MonthCalendar';
+import { SwipeableRow } from '@components/SwipeableRow';
 import * as Haptics from '@lib/haptics';
 import {
   format, startOfDay, startOfWeek, addDays, isSameDay, parseISO,
@@ -40,11 +41,17 @@ export default function TodayScreen() {
   const addPoints          = usePointsStore((s) => s.addPoints);
   const wasGoalBonus       = usePointsStore((s) => s.wasGoalBonusGrantedToday);
   const categories         = useCategoryStore((s) => s.categories);
-  const streakBonusEnabled = useSettingsStore((s) => s.streakBonusEnabled);
+  const streakBonusEnabled    = useSettingsStore((s) => s.streakBonusEnabled);
+  const persistedSortMode     = useSettingsStore((s) => s.sortMode);
+  const persistedViewMode     = useSettingsStore((s) => s.viewMode);
+  const setSortModePersisted  = useSettingsStore((s) => s.setSortMode);
+  const setViewModePersisted  = useSettingsStore((s) => s.setViewMode);
 
   type SortMode = 'default' | 'points_desc' | 'alpha' | 'category';
-  const [sortMode, setSortMode]       = useState<SortMode>('default');
-  const [viewMode, setViewMode]       = useState<'list' | 'compact'>('list');
+  const sortMode = persistedSortMode as SortMode;
+  const viewMode = persistedViewMode;
+  const setSortMode = (v: SortMode) => { setSortModePersisted(v); };
+  const setViewMode = (v: 'list' | 'compact') => { setViewModePersisted(v); };
   const comboRef = useRef(0);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -272,7 +279,7 @@ export default function TodayScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {/* Compact view toggle */}
             <TouchableOpacity
-              onPress={() => setViewMode((m) => m === 'list' ? 'compact' : 'list')}
+              onPress={() => setViewMode(viewMode === 'list' ? 'compact' : 'list')}
               style={{ backgroundColor: viewMode === 'compact' ? '#0ea5e9' : '#e2e8f0', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
             >
               <Text style={{ fontSize: 13, color: viewMode === 'compact' ? '#fff' : '#64748b' }}>☰</Text>
@@ -440,16 +447,10 @@ export default function TodayScreen() {
           <SkeletonCard />
         </View>
       )}
-      {!loading && (<FlatList
-        data={todayTasks}
-        keyExtractor={(t) => t.id}
-        contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
-        ListEmptyComponent={
+      {!loading && (() => {
+        const emptyComponent = (
           <View style={{ alignItems: 'center', marginTop: 48 }}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>
-              {isToday ? '🎉' : '📅'}
-            </Text>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>{isToday ? '🎉' : '📅'}</Text>
             <Text style={{ fontSize: 16, color: '#64748b', fontWeight: '600' }}>
               {isToday ? 'Nothing due today' : 'No tasks on this day'}
             </Text>
@@ -457,19 +458,80 @@ export default function TodayScreen() {
               {isToday ? 'Add a task to get started' : 'Schedule tasks to see them here'}
             </Text>
           </View>
+        );
+
+        const renderTaskItem = (item: Task) => (
+          <SwipeableRow
+            key={item.id}
+            disabled={!isToday}
+            onSwipeLeft={isToday && !completedIds.has(item.id)
+              ? () => handleComplete(item)
+              : isToday && completedIds.has(item.id)
+                ? () => handleComplete(item)   // uncomplete
+                : undefined}
+            onSwipeRight={isToday ? () => handleLongPress(item) : undefined}
+            leftColor="#22c55e"
+            rightColor="#e2e8f0"
+            leftLabel="✓"
+            rightLabel="···"
+          >
+            <TaskCard
+              task={item}
+              completed={completedIds.has(item.id)}
+              onComplete={isToday ? () => handleComplete(item) : undefined}
+              onPress={() => router.push(`/task/${item.id}`)}
+              onLongPress={isToday ? () => handleLongPress(item) : undefined}
+              readonly={!isToday}
+              compact={viewMode === 'compact'}
+            />
+          </SwipeableRow>
+        );
+
+        if (sortMode === 'category') {
+          // Grouped SectionList
+          const catName = (t: Task) => categories.find((c) => c.id === t.categoryId)?.name ?? 'Uncategorised';
+          const sectionMap = new Map<string, Task[]>();
+          for (const t of todayTasks) {
+            const name = catName(t);
+            if (!sectionMap.has(name)) sectionMap.set(name, []);
+            sectionMap.get(name)!.push(t);
+          }
+          const sections = Array.from(sectionMap.entries()).map(([title, data]) => ({ title, data }));
+
+          return (
+            <SectionList
+              sections={sections}
+              keyExtractor={(t) => t.id}
+              contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
+              ListEmptyComponent={emptyComponent}
+              renderSectionHeader={({ section: { title } }) => (
+                <View style={{ paddingVertical: 6, paddingHorizontal: 2, marginTop: 8, marginBottom: 2 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {title}
+                  </Text>
+                </View>
+              )}
+              renderItem={({ item }) => (
+                <View style={{ marginBottom: 10 }}>
+                  {renderTaskItem(item)}
+                </View>
+              )}
+            />
+          );
         }
-        renderItem={({ item }) => (
-          <TaskCard
-            task={item}
-            completed={completedIds.has(item.id)}
-            onComplete={isToday ? () => handleComplete(item) : undefined}
-            onPress={() => router.push(`/task/${item.id}`)}
-            onLongPress={isToday ? () => handleLongPress(item) : undefined}
-            readonly={!isToday}
-            compact={viewMode === 'compact'}
+
+        return (
+          <FlatList
+            data={todayTasks}
+            keyExtractor={(t) => t.id}
+            contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 100 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
+            ListEmptyComponent={emptyComponent}
+            renderItem={({ item }) => renderTaskItem(item)}
           />
-        )}
-      />)}
+        );
+      })()}
 
       {/* FAB group (only on today) */}
       {isToday && (
