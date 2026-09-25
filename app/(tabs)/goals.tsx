@@ -9,8 +9,8 @@ import { useTaskStore } from '@store/index';
 import { GoalCard } from '@components/GoalCard';
 import { Screen } from '@components/Screen';
 import { deserializeRule } from '@lib/recurrence';
+import { useColors } from '@lib/colors';
 
-/** Derive period date range and label from a goal's scheduleRule */
 function getPeriodInfo(scheduleRuleJson: string): {
   from: string; to: string; label: string; daysLeft: number;
 } {
@@ -31,11 +31,12 @@ function getPeriodInfo(scheduleRuleJson: string): {
       return { from, to, label: 'this month', daysLeft };
     }
   } catch {}
-  // daily / once / custom → "today"
   return { from: todayStr, to: todayStr, label: 'today', daysLeft: 0 };
 }
 
 export default function GoalsScreen() {
+  const C = useColors();
+
   const tasks              = useTaskStore((s) => s.tasks);
   const completedTodayIds  = useTaskStore((s) => s.completedTodayIds);
   const completionsInRange = useTaskStore((s) => s.completionsInRange);
@@ -51,11 +52,10 @@ export default function GoalsScreen() {
 
   const [showArchived, setShowArchived] = useState(false);
 
-  const allGoals     = tasks.filter((t) => t.isGoal);
-  const goals        = allGoals.filter((t) => !t.archivedAt);
+  const allGoals      = tasks.filter((t) => t.isGoal);
+  const goals         = allGoals.filter((t) => !t.archivedAt);
   const archivedGoals = allGoals.filter((t) => !!t.archivedAt);
 
-  // Map: goalId → total child-task completions within the current period
   const [periodCounts, setPeriodCounts] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
@@ -64,7 +64,6 @@ export default function GoalsScreen() {
     );
     if (allChildTaskIds.length === 0) return;
 
-    // Find the broadest range needed (monthly wins over weekly wins over daily)
     const today = new Date();
     const from = format(startOfMonth(today), 'yyyy-MM-dd');
     const to   = format(endOfMonth(today), 'yyyy-MM-dd');
@@ -73,12 +72,8 @@ export default function GoalsScreen() {
       const goalTotals = new Map<string, number>();
       for (const goal of goals) {
         const children = tasks.filter((t) => t.parentGoalId === goal.id && !t.archivedAt);
-        const { from: pFrom, to: pTo } = getPeriodInfo(goal.scheduleRule);
         let total = 0;
         for (const child of children) {
-          // Sum only completions within this goal's specific period
-          // byTaskId was fetched for the full month; we filter by period dates
-          // (For simplicity, we just use the count from the month fetch — close enough for weekly/monthly)
           total += byTaskId.get(child.id) ?? 0;
         }
         goalTotals.set(goal.id, total);
@@ -89,10 +84,9 @@ export default function GoalsScreen() {
 
   return (
     <Screen edges={['top']}>
-      {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 }}>
-        <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a' }}>Goals</Text>
-        <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 1 }}>
+        <Text style={{ fontSize: 26, fontWeight: '700', color: C.textDim }}>Goals</Text>
+        <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>
           {goals.length} active goal{goals.length !== 1 ? 's' : ''}
         </Text>
       </View>
@@ -101,12 +95,12 @@ export default function GoalsScreen() {
         data={goals}
         keyExtractor={(g) => g.id}
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', marginTop: 64 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>🎯</Text>
-            <Text style={{ fontSize: 16, color: '#64748b', fontWeight: '600' }}>No goals yet</Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+            <Text style={{ fontSize: 16, color: C.textSecondary, fontWeight: '600' }}>No goals yet</Text>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>
               Tap + to create your first goal
             </Text>
           </View>
@@ -133,7 +127,7 @@ export default function GoalsScreen() {
                 onPress={() => setShowArchived((v) => !v)}
                 style={{ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 }}
               >
-                <Text style={{ fontSize: 13, color: '#94a3b8' }}>
+                <Text style={{ fontSize: 13, color: C.textMuted }}>
                   {showArchived ? 'Hide archived' : `${archivedGoals.length} archived →`}
                 </Text>
               </TouchableOpacity>
@@ -144,10 +138,10 @@ export default function GoalsScreen() {
                       { text: 'Cancel', style: 'cancel' },
                       { text: 'Unarchive', onPress: () => unarchiveTask(g.id) },
                     ])}
-                    style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }}
+                    style={{ backgroundColor: C.bgCard, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 }}
                   >
-                    <Text style={{ fontSize: 15, fontStyle: 'italic', color: '#64748b' }}>{g.title}</Text>
-                    <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Tap to unarchive</Text>
+                    <Text style={{ fontSize: 15, fontStyle: 'italic', color: C.textSecondary }}>{g.title}</Text>
+                    <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4 }}>Tap to unarchive</Text>
                   </Pressable>
                 </View>
               ))}
@@ -160,20 +154,12 @@ export default function GoalsScreen() {
       <TouchableOpacity
         onPress={() => router.push('/new-goal')}
         style={{
-          position: 'absolute',
-          bottom: 32,
-          right: 24,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: '#0ea5e9',
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#0ea5e9',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 8,
-          elevation: 6,
+          position: 'absolute', bottom: 32, right: 24,
+          width: 56, height: 56, borderRadius: 28,
+          backgroundColor: C.primary,
+          alignItems: 'center', justifyContent: 'center',
+          shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
         }}
       >
         <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32 }}>+</Text>

@@ -1,50 +1,86 @@
-/**
- * Centralised color constants for quests4life.
- *
- * Usage:
- *   import { Colors } from '@lib/colors';
- *   style={{ color: Colors.primary }}
- *
- * These are the light-mode palette values. Dark mode support (P2-A) will extend
- * this to a useColors() hook that switches based on the current theme setting.
- */
-export const Colors = {
-  // Brand
-  primary:        '#0ea5e9',   // sky-500 — main accent
-  primaryLight:   '#bae6fd',   // sky-200
-  primaryDark:    '#0369a1',   // sky-700
-  primaryBg:      '#f0f9ff',   // sky-50
+import { useColorScheme } from 'react-native';
+import { useSettingsStore } from '@store/settingsStore';
 
-  // Semantic
-  success:        '#22c55e',   // green-500
-  successLight:   '#dcfce7',   // green-100
-  successDark:    '#16a34a',   // green-600
+export const lightColors = {
+  primary:       '#0ea5e9',
+  primaryLight:  '#bae6fd',
+  primaryDark:   '#0369a1',
+  primaryBg:     '#f0f9ff',
 
-  warning:        '#f59e0b',   // amber-500
-  warningLight:   '#fef9c3',   // yellow-100
-  warningDark:    '#d97706',   // amber-600
+  success:       '#22c55e',
+  successLight:  '#dcfce7',
+  successDark:   '#16a34a',
 
-  danger:         '#ef4444',   // red-500
-  dangerLight:    '#fee2e2',   // red-100
-  dangerDark:     '#dc2626',   // red-600
+  warning:       '#f59e0b',
+  warningLight:  '#fef9c3',
+  warningDark:   '#d97706',
 
-  purple:         '#8b5cf6',   // violet-500
+  danger:        '#ef4444',
+  dangerLight:   '#fee2e2',
+  dangerDark:    '#dc2626',
 
-  // Neutrals
-  text:           '#0f172a',   // slate-900
-  textSecondary:  '#64748b',   // slate-500
-  textMuted:      '#94a3b8',   // slate-400
-  textDisabled:   '#cbd5e1',   // slate-300
+  purple:        '#8b5cf6',
 
-  border:         '#e2e8f0',   // slate-200
-  borderLight:    '#f1f5f9',   // slate-100
+  text:          '#1e293b',
+  textDim:       '#0f172a',
+  textSecondary: '#64748b',
+  textMuted:     '#94a3b8',
+  textDisabled:  '#cbd5e1',
 
-  bgCard:         '#ffffff',
-  bgPage:         '#f8fafc',   // slate-50
-  bgInput:        '#f8fafc',
+  border:        '#e2e8f0',
+  borderLight:   '#f1f5f9',
 
-  // Overlay
-  overlay:        'rgba(0,0,0,0.4)',
+  bgCard:        '#ffffff',
+  bgPage:        '#f8fafc',
+  bgInput:       '#f8fafc',
+
+  overlay:       'rgba(0,0,0,0.4)',
 } as const;
 
-export type ColorKey = keyof typeof Colors;
+export const darkColors = {
+  primary:       '#0ea5e9',
+  primaryLight:  '#0369a1',
+  primaryDark:   '#7dd3fc',
+  primaryBg:     '#0c2a3a',
+
+  success:       '#4ade80',
+  successLight:  '#052e16',
+  successDark:   '#86efac',
+
+  warning:       '#fbbf24',
+  warningLight:  '#1c1400',
+  warningDark:   '#fde68a',
+
+  danger:        '#f87171',
+  dangerLight:   '#1f0000',
+  dangerDark:    '#fca5a5',
+
+  purple:        '#a78bfa',
+
+  text:          '#e2e8f0',
+  textDim:       '#f1f5f9',
+  textSecondary: '#94a3b8',
+  textMuted:     '#64748b',
+  textDisabled:  '#475569',
+
+  border:        '#334155',
+  borderLight:   '#1e293b',
+
+  bgCard:        '#1e293b',
+  bgPage:        '#0f172a',
+  bgInput:       '#334155',
+
+  overlay:       'rgba(0,0,0,0.6)',
+} as const;
+
+// Kept for backward compatibility (light palette)
+export const Colors = lightColors;
+export type ColorKey = keyof typeof lightColors;
+export type AppColors = typeof lightColors;
+
+export function useColors(): AppColors {
+  const scheme = useColorScheme();
+  const themeMode = useSettingsStore((s) => s.themeMode);
+  const isDark = themeMode === 'dark' || (themeMode === 'system' && scheme === 'dark');
+  return isDark ? darkColors : lightColors;
+}

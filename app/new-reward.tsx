@@ -3,10 +3,12 @@ import { KeyboardAvoidingView, Platform, View, Text, TextInput, ScrollView, Touc
 import { router } from 'expo-router';
 import { Screen } from '@components/Screen';
 import { useRewardsStore } from '@store/index';
+import { useColors } from '@lib/colors';
 
 const COST_PRESETS = [50, 100, 200, 500, 1000];
 
 export default function NewRewardScreen() {
+  const C = useColors();
   const addReward = useRewardsStore((s) => s.addReward);
 
   const [name, setName]           = useState('');
@@ -33,16 +35,18 @@ export default function NewRewardScreen() {
     router.back();
   };
 
+  const label = { fontSize: 11, fontWeight: '700' as const, color: C.textMuted, textTransform: 'uppercase' as const, letterSpacing: 0.6, marginBottom: 8 };
+  const input = { backgroundColor: C.bgInput, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.text, borderWidth: 1, borderColor: C.borderLight };
+
   return (
-    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
-      {/* Nav bar */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
+    <Screen edges={['top', 'bottom']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: C.borderLight }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ fontSize: 16, color: '#0ea5e9' }}>Cancel</Text>
+          <Text style={{ fontSize: 16, color: C.primary }}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 17, fontWeight: '600', color: '#0f172a' }}>New Reward</Text>
+        <Text style={{ fontSize: 17, fontWeight: '600', color: C.textDim }}>New Reward</Text>
         <TouchableOpacity onPress={handleSubmit}>
-          <Text style={{ fontSize: 16, color: '#0ea5e9', fontWeight: '600' }}>Add</Text>
+          <Text style={{ fontSize: 16, color: C.primary, fontWeight: '600' }}>Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -53,11 +57,11 @@ export default function NewRewardScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View>
-          <Text style={styles.label}>Reward Name</Text>
+          <Text style={label}>Reward Name</Text>
           <TextInput
-            style={styles.input}
+            style={input}
             placeholder="e.g. Nice dinner, Movie night, New shoes…"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             value={name}
             onChangeText={setName}
             autoFocus
@@ -65,11 +69,11 @@ export default function NewRewardScreen() {
         </View>
 
         <View>
-          <Text style={styles.label}>Description (optional)</Text>
+          <Text style={label}>Description (optional)</Text>
           <TextInput
-            style={[styles.input, { height: 72, textAlignVertical: 'top', paddingTop: 12 }]}
+            style={[input, { height: 72, textAlignVertical: 'top', paddingTop: 12 }]}
             placeholder="What makes this feel special?"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -77,7 +81,7 @@ export default function NewRewardScreen() {
         </View>
 
         <View>
-          <Text style={styles.label}>Point Cost</Text>
+          <Text style={label}>Point Cost</Text>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {COST_PRESETS.map((pts) => {
               const active = pointCost === pts && !customCost;
@@ -86,26 +90,23 @@ export default function NewRewardScreen() {
                   key={pts}
                   onPress={() => { setPointCost(pts); setCustomCost(''); }}
                   style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    backgroundColor: active ? '#0ea5e9' : '#fff',
-                    borderColor: active ? '#0ea5e9' : '#e2e8f0',
+                    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                    backgroundColor: active ? C.primary : C.bgCard,
+                    borderColor: active ? C.primary : C.border,
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : '#475569' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : C.textSecondary }}>
                     ⭐ {pts}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Or set custom cost:</Text>
+          <Text style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>Or set custom cost:</Text>
           <TextInput
-            style={[styles.input, { width: 120 }]}
+            style={[input, { width: 120 }]}
             placeholder="e.g. 750"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             keyboardType="number-pad"
             value={customCost}
             onChangeText={(t) => {
@@ -115,7 +116,7 @@ export default function NewRewardScreen() {
             }}
           />
           {effectiveCost > 0 && (
-            <Text style={{ fontSize: 14, color: '#0ea5e9', fontWeight: '600', marginTop: 10 }}>
+            <Text style={{ fontSize: 14, color: C.primary, fontWeight: '600', marginTop: 10 }}>
               Total cost: ⭐ {effectiveCost}
             </Text>
           )}
@@ -125,24 +126,3 @@ export default function NewRewardScreen() {
     </Screen>
   );
 }
-
-const styles = {
-  label: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: '#94a3b8',
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-};

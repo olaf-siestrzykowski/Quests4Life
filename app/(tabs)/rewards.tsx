@@ -3,14 +3,17 @@ import { router } from 'expo-router';
 import { Screen } from '@components/Screen';
 import * as Haptics from '@lib/haptics';
 import { useRewardsStore, usePointsStore } from '@store/index';
+import { useColors } from '@lib/colors';
 import type { Reward } from '@db/schema';
 
 export default function RewardsScreen() {
-  const rewards     = useRewardsStore((s) => s.rewards);
+  const C = useColors();
+
+  const rewards      = useRewardsStore((s) => s.rewards);
   const redeemReward = useRewardsStore((s) => s.redeemReward);
   const archiveReward = useRewardsStore((s) => s.archiveReward);
-  const balance     = usePointsStore((s) => s.balance);
-  const addPoints   = usePointsStore((s) => s.addPoints);
+  const balance      = usePointsStore((s) => s.balance);
+  const addPoints    = usePointsStore((s) => s.addPoints);
 
   const handleRedeem = (reward: Reward) => {
     if (balance < reward.pointCost) {
@@ -55,14 +58,13 @@ export default function RewardsScreen() {
 
   return (
     <Screen edges={['top']}>
-      {/* Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View>
-            <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a' }}>Rewards</Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 1 }}>Spend your points</Text>
+            <Text style={{ fontSize: 26, fontWeight: '700', color: C.textDim }}>Rewards</Text>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>Spend your points</Text>
           </View>
-          <View style={{ backgroundColor: '#f59e0b', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
+          <View style={{ backgroundColor: C.warning, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
             <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>⭐ {balance}</Text>
           </View>
         </View>
@@ -75,8 +77,8 @@ export default function RewardsScreen() {
         ListEmptyComponent={
           <View style={{ alignItems: 'center', marginTop: 64 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>🎁</Text>
-            <Text style={{ fontSize: 16, color: '#64748b', fontWeight: '600' }}>No rewards yet</Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+            <Text style={{ fontSize: 16, color: C.textSecondary, fontWeight: '600' }}>No rewards yet</Text>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>
               Tap + to add something to work towards
             </Text>
           </View>
@@ -88,46 +90,36 @@ export default function RewardsScreen() {
               onPress={() => handleRedeem(item)}
               onLongPress={() => handleLongPress(item)}
               style={{
-                backgroundColor: '#ffffff',
-                borderRadius: 16,
-                padding: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.06,
-                shadowRadius: 4,
-                elevation: 2,
+                backgroundColor: C.bgCard,
+                borderRadius: 16, padding: 16,
+                flexDirection: 'row', alignItems: 'center', gap: 12,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
                 opacity: canAfford ? 1 : 0.75,
               }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#1e293b' }}>{item.name}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>{item.name}</Text>
                 {item.description ? (
-                  <Text style={{ fontSize: 13, color: '#64748b', marginTop: 3 }} numberOfLines={2}>
+                  <Text style={{ fontSize: 13, color: C.textSecondary, marginTop: 3 }} numberOfLines={2}>
                     {item.description}
                   </Text>
                 ) : null}
                 {item.redeemedCount > 0 && (
-                  <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 3 }}>
+                  <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 3 }}>
                     Redeemed {item.redeemedCount}×
                   </Text>
                 )}
               </View>
               <View style={{ alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: canAfford ? '#f59e0b' : '#cbd5e1' }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: canAfford ? C.warning : C.textDisabled }}>
                   ⭐ {item.pointCost}
                 </Text>
-                <View
-                  style={{
-                    borderRadius: 10,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    backgroundColor: canAfford ? '#0ea5e9' : '#e2e8f0',
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: canAfford ? '#fff' : '#94a3b8' }}>
+                <View style={{
+                  borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4,
+                  backgroundColor: canAfford ? C.primary : C.border,
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: canAfford ? '#fff' : C.textMuted }}>
                     {canAfford ? 'Redeem' : 'Locked'}
                   </Text>
                 </View>
@@ -137,24 +129,15 @@ export default function RewardsScreen() {
         }}
       />
 
-      {/* FAB */}
       <TouchableOpacity
         onPress={() => router.push('/new-reward')}
         style={{
-          position: 'absolute',
-          bottom: 32,
-          right: 24,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: '#f59e0b',
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#f59e0b',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 8,
-          elevation: 6,
+          position: 'absolute', bottom: 32, right: 24,
+          width: 56, height: 56, borderRadius: 28,
+          backgroundColor: C.warning,
+          alignItems: 'center', justifyContent: 'center',
+          shadowColor: C.warning, shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
         }}
       >
         <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32 }}>+</Text>

@@ -28,9 +28,10 @@ export const tasks = sqliteTable('tasks', {
   // bonus points awarded when all child tasks of this goal are completed
   bonusPoints:   int('bonus_points').notNull().default(0),
   // 'easy' = 0.5×, 'normal' = 1×, 'hard' = 2× of pointValue at completion
-  difficulty:    text('difficulty').default('normal'),
-  sortOrder:     int('sort_order').notNull().default(0),
-  archivedAt:    text('archived_at'),
+  difficulty:      text('difficulty').default('normal'),
+  sortOrder:       int('sort_order').notNull().default(0),
+  scheduleEndDate: text('schedule_end_date'), // ISO date YYYY-MM-DD, null = never ends
+  archivedAt:      text('archived_at'),
   createdAt:     text('created_at').notNull().default(sql`(datetime('now'))`),
 });
 

@@ -4,6 +4,7 @@ import type { Task } from '@db/schema';
 import { useCategoryStore } from '@store/index';
 import { deserializeRule, formatRuleSummary } from '@lib/recurrence';
 import { effectivePoints } from '@lib/difficulty';
+import { useColors } from '@lib/colors';
 
 type Props = {
   task: Task;
@@ -12,13 +13,10 @@ type Props = {
   onPress?: () => void;
   onLongPress?: () => void;
   readonly?: boolean;
-  /** Show ▲/▼ reorder buttons */
   reordering?: boolean;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
-  /** Compact mode: only checkbox + title, reduced height */
   compact?: boolean;
-  /** Current streak for this task (consecutive days) */
   streak?: number;
 };
 
@@ -35,13 +33,14 @@ export function TaskCard({
   compact = false,
   streak,
 }: Props) {
+  const C = useColors();
   const categories = useCategoryStore((s) => s.categories);
   const category   = categories.find((c) => c.id === task.categoryId);
 
   let scheduleSummary = '';
   try { scheduleSummary = formatRuleSummary(deserializeRule(task.scheduleRule)); } catch {}
 
-  const cardBg = readonly ? '#f8fafc' : '#ffffff';
+  const cardBg = readonly ? C.bgPage : C.bgCard;
 
   return (
     <Pressable
@@ -72,26 +71,24 @@ export function TaskCard({
         borderBottomLeftRadius: 16,
       }} />
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: compact ? 9 : 14, paddingRight: 16 }}>
-      {/* Reorder controls */}
       {reordering ? (
         <View style={{ gap: 2 }}>
           <TouchableOpacity
             onPress={onMoveUp}
             hitSlop={6}
-            style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: '#f1f5f9' }}
+            style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: C.borderLight }}
           >
-            <Text style={{ fontSize: 14, color: '#64748b' }}>▲</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>▲</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onMoveDown}
             hitSlop={6}
-            style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: '#f1f5f9' }}
+            style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: C.borderLight }}
           >
-            <Text style={{ fontSize: 14, color: '#64748b' }}>▼</Text>
+            <Text style={{ fontSize: 14, color: C.textSecondary }}>▼</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        /* Checkbox */
         <TouchableOpacity
           onPress={readonly ? undefined : onComplete}
           hitSlop={8}
@@ -100,8 +97,8 @@ export function TaskCard({
             height: 24,
             borderRadius: 12,
             borderWidth: 2,
-            borderColor: readonly ? '#e2e8f0' : completed ? '#0ea5e9' : '#cbd5e1',
-            backgroundColor: completed ? '#0ea5e9' : 'transparent',
+            borderColor: readonly ? C.border : completed ? C.primary : C.textDisabled,
+            backgroundColor: completed ? C.primary : 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -110,13 +107,12 @@ export function TaskCard({
         </TouchableOpacity>
       )}
 
-      {/* Content */}
       <View style={{ flex: 1 }}>
         <Text
           style={{
             fontSize: compact ? 14 : 15,
             fontWeight: '500',
-            color: readonly && completed ? '#b0bec5' : completed ? '#94a3b8' : readonly ? '#64748b' : '#1e293b',
+            color: completed ? C.textMuted : readonly ? C.textSecondary : C.text,
             textDecorationLine: completed ? 'line-through' : 'none',
             opacity: readonly && completed ? 0.6 : 1,
           }}
@@ -127,36 +123,34 @@ export function TaskCard({
         {!compact && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
             {category && (
-              <Text style={{ fontSize: 11, color: '#94a3b8' }}>{category.name}</Text>
+              <Text style={{ fontSize: 11, color: C.textMuted }}>{category.name}</Text>
             )}
             {scheduleSummary ? (
-              <Text style={{ fontSize: 11, color: '#cbd5e1' }}>
+              <Text style={{ fontSize: 11, color: C.textDisabled }}>
                 {category ? '· ' : ''}{scheduleSummary}
               </Text>
             ) : null}
             {streak !== undefined && streak >= 2 && (
-              <Text style={{ fontSize: 11, color: '#f59e0b', fontWeight: '600' }}>🔥 {streak}</Text>
+              <Text style={{ fontSize: 11, color: C.warning, fontWeight: '600' }}>🔥 {streak}</Text>
             )}
           </View>
         )}
       </View>
 
-      {/* Difficulty badge (easy/hard only) */}
       {!reordering && task.difficulty && task.difficulty !== 'normal' && (
         <View style={{
           paddingHorizontal: 5, paddingVertical: 2, borderRadius: 5,
-          backgroundColor: task.difficulty === 'easy' ? '#dcfce7' : '#fee2e2',
+          backgroundColor: task.difficulty === 'easy' ? C.successLight : C.dangerLight,
           marginRight: 2,
         }}>
-          <Text style={{ fontSize: 9, fontWeight: '700', color: task.difficulty === 'easy' ? '#16a34a' : '#dc2626' }}>
+          <Text style={{ fontSize: 9, fontWeight: '700', color: task.difficulty === 'easy' ? C.successDark : C.dangerDark }}>
             {task.difficulty.toUpperCase()}
           </Text>
         </View>
       )}
 
-      {/* Points */}
       {!reordering && (
-        <Text style={{ fontSize: 13, fontWeight: '600', color: completed ? '#cbd5e1' : readonly ? '#cbd5e1' : '#0ea5e9' }}>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: completed ? C.textDisabled : readonly ? C.textDisabled : C.primary }}>
           +{effectivePoints(task)}
         </Text>
       )}

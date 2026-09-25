@@ -29,6 +29,13 @@
       "when": 1772401000000,
       "tag": "0003_achievements",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790333356907,
+      "tag": "0004_loose_naoko",
+      "breakpoints": true
     }
   ]
 }

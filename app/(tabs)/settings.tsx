@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Platform, Share } from 'react-native';
 import { Screen } from '@components/Screen';
 import { useCategoryStore, useSettingsStore } from '@store/index';
+import { useColors } from '@lib/colors';
+import type { ThemeMode } from '@store/settingsStore';
 import {
   requestNotificationPermissions,
   scheduleDailyReminder,
@@ -17,11 +19,19 @@ const PRESET_COLORS = [
   '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
 ];
 
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
+  { value: 'light',  label: 'Light',  icon: '☀️' },
+  { value: 'system', label: 'System', icon: '⚙️' },
+  { value: 'dark',   label: 'Dark',   icon: '🌙' },
+];
+
 function pad(n: number) {
   return String(n).padStart(2, '0');
 }
 
 export default function SettingsScreen() {
+  const C = useColors();
+
   const categories     = useCategoryStore((s) => s.categories);
   const addCategory    = useCategoryStore((s) => s.addCategory);
   const removeCategory = useCategoryStore((s) => s.removeCategory);
@@ -38,6 +48,9 @@ export default function SettingsScreen() {
   const setHapticsEnabled     = useSettingsStore((s) => s.setHapticsEnabled);
   const setDefaultPointValue  = useSettingsStore((s) => s.setDefaultPointValue);
   const setStreakBonusEnabled = useSettingsStore((s) => s.setStreakBonusEnabled);
+
+  const themeMode    = useSettingsStore((s) => s.themeMode);
+  const setThemeMode = useSettingsStore((s) => s.setThemeMode);
 
   const [name, setName]     = useState('');
   const [color, setColor]   = useState(PRESET_COLORS[3]);
@@ -75,10 +88,7 @@ export default function SettingsScreen() {
       const newStatus = await getPermissionStatus();
       setPermStatus(newStatus);
       if (!granted) {
-        Alert.alert(
-          'Permission needed',
-          'Please allow notifications in your device settings to enable reminders.',
-        );
+        Alert.alert('Permission needed', 'Please allow notifications in your device settings to enable reminders.');
         return;
       }
       await setNotificationsEnabled(true);
@@ -174,46 +184,78 @@ export default function SettingsScreen() {
     Alert.alert('Saved', `Daily reminder set for ${pad(h)}:${pad(m)}.`);
   };
 
+  const sectionLabel = { fontSize: 13, fontWeight: '600' as const, color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' as const, marginBottom: 10 };
+  const card = { backgroundColor: C.bgCard, borderRadius: 16, overflow: 'hidden' as const, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 };
+  const rowBorder = { borderTopWidth: 0.5 as const, borderTopColor: C.borderLight };
+  const timeInput = { width: 52, backgroundColor: C.bgInput, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 16, color: C.text, borderWidth: 1, borderColor: C.border, textAlign: 'center' as const, fontWeight: '600' as const };
+
   return (
     <Screen edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
-        <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a', marginBottom: 20 }}>Settings</Text>
+        <Text style={{ fontSize: 26, fontWeight: '700', color: C.textDim, marginBottom: 20 }}>Settings</Text>
+
+        {/* ── Appearance ─────────────────────────────────────── */}
+        <Text style={sectionLabel}>Appearance</Text>
+        <View style={card}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
+            <Text style={{ fontSize: 15, color: C.text, fontWeight: '500', marginBottom: 12 }}>Theme</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {THEME_OPTIONS.map(({ value, label, icon }) => {
+                const active = themeMode === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => setThemeMode(value)}
+                    style={{
+                      flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 2,
+                      backgroundColor: active ? C.primaryBg : C.bgPage,
+                      borderColor: active ? C.primary : C.border,
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>{icon}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', marginTop: 4, color: active ? C.primary : C.textSecondary }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
 
         {/* ── Notifications ─────────────────────────────────── */}
-        <Text style={sectionLabel}>Notifications</Text>
+        <Text style={[sectionLabel, { marginTop: 24 }]}>Notifications</Text>
         <View style={card}>
-          {/* Toggle */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Daily reminder</Text>
+                <Text style={{ fontSize: 15, color: C.text, fontWeight: '500' }}>Daily reminder</Text>
                 {permStatus !== null && (
                   <View style={{
                     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
-                    backgroundColor: permStatus === 'granted' ? '#dcfce7' : permStatus === 'denied' ? '#fee2e2' : '#f1f5f9',
+                    backgroundColor: permStatus === 'granted' ? C.successLight : permStatus === 'denied' ? C.dangerLight : C.borderLight,
                   }}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: permStatus === 'granted' ? '#16a34a' : permStatus === 'denied' ? '#dc2626' : '#64748b' }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: permStatus === 'granted' ? C.successDark : permStatus === 'denied' ? C.dangerDark : C.textSecondary }}>
                       {permStatus === 'granted' ? 'GRANTED' : permStatus === 'denied' ? 'DENIED' : 'NOT ASKED'}
                     </Text>
                   </View>
                 )}
               </View>
-              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
                 Get nudged every day at a set time
               </Text>
             </View>
             <Switch
               value={notificationsEnabled}
               onValueChange={handleToggleNotifications}
-              trackColor={{ false: '#e2e8f0', true: '#bae6fd' }}
-              thumbColor={notificationsEnabled ? '#0ea5e9' : '#cbd5e1'}
+              trackColor={{ false: C.border, true: C.primaryLight }}
+              thumbColor={notificationsEnabled ? C.primary : C.textDisabled}
             />
           </View>
 
-          {/* Time picker (shown when enabled) */}
           {notificationsEnabled && (
-            <View style={{ paddingHorizontal: 16, paddingBottom: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}>
-              <Text style={{ fontSize: 12, color: '#64748b', marginTop: 12, marginBottom: 8 }}>Reminder time</Text>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 14, ...rowBorder }}>
+              <Text style={{ fontSize: 12, color: C.textSecondary, marginTop: 12, marginBottom: 8 }}>Reminder time</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <TextInput
                   style={timeInput}
@@ -222,9 +264,9 @@ export default function SettingsScreen() {
                   keyboardType="number-pad"
                   maxLength={2}
                   placeholder="08"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={C.textMuted}
                 />
-                <Text style={{ fontSize: 18, color: '#475569', fontWeight: '700' }}>:</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary, fontWeight: '700' }}>:</Text>
                 <TextInput
                   style={timeInput}
                   value={minuteInput}
@@ -232,20 +274,20 @@ export default function SettingsScreen() {
                   keyboardType="number-pad"
                   maxLength={2}
                   placeholder="00"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={C.textMuted}
                 />
                 <TouchableOpacity
                   onPress={handleSaveTime}
-                  style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#0ea5e9' }}
+                  style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: C.primary }}
                 >
                   <Text style={{ fontSize: 13, color: '#fff', fontWeight: '600' }}>Save</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
                 onPress={handleTestNotification}
-                style={{ marginTop: 10, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#f1f5f9', alignSelf: 'flex-start' }}
+                style={{ marginTop: 10, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, backgroundColor: C.borderLight, alignSelf: 'flex-start' }}
               >
-                <Text style={{ fontSize: 13, color: '#64748b', fontWeight: '500' }}>Send test now</Text>
+                <Text style={{ fontSize: 13, color: C.textSecondary, fontWeight: '500' }}>Send test now</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -258,68 +300,62 @@ export default function SettingsScreen() {
             <View
               key={cat.id}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 16,
-                paddingVertical: 13,
+                flexDirection: 'row', alignItems: 'center',
+                paddingHorizontal: 16, paddingVertical: 13,
                 borderTopWidth: idx === 0 ? 0 : 0.5,
-                borderTopColor: '#f1f5f9',
+                borderTopColor: C.borderLight,
               }}
             >
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: cat.color, marginRight: 12 }} />
-              <Text style={{ flex: 1, fontSize: 15, color: '#1e293b' }}>{cat.name}</Text>
+              <Text style={{ flex: 1, fontSize: 15, color: C.text }}>{cat.name}</Text>
               <TouchableOpacity onPress={() => handleDelete(cat.id, cat.name)} hitSlop={8}>
-                <Text style={{ fontSize: 18, color: '#cbd5e1' }}>×</Text>
+                <Text style={{ fontSize: 18, color: C.textDisabled }}>×</Text>
               </TouchableOpacity>
             </View>
           ))}
 
-          {/* Add category row */}
           {!adding ? (
             <TouchableOpacity
               onPress={() => setAdding(true)}
-              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: categories.length ? 0.5 : 0, borderTopColor: '#f1f5f9' }}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: categories.length ? 0.5 : 0, borderTopColor: C.borderLight }}
             >
-              <Text style={{ fontSize: 22, color: '#0ea5e9', marginRight: 10, lineHeight: 26 }}>+</Text>
-              <Text style={{ fontSize: 15, color: '#0ea5e9', fontWeight: '500' }}>New Category</Text>
+              <Text style={{ fontSize: 22, color: C.primary, marginRight: 10, lineHeight: 26 }}>+</Text>
+              <Text style={{ fontSize: 15, color: C.primary, fontWeight: '500' }}>New Category</Text>
             </TouchableOpacity>
           ) : (
-            <View style={{ padding: 16, borderTopWidth: categories.length ? 0.5 : 0, borderTopColor: '#f1f5f9' }}>
+            <View style={{ padding: 16, borderTopWidth: categories.length ? 0.5 : 0, borderTopColor: C.borderLight }}>
               <TextInput
                 autoFocus
                 placeholder="Category name"
                 value={name}
                 onChangeText={setName}
-                style={{ backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15, color: '#1e293b', borderWidth: 1, borderColor: '#e2e8f0' }}
+                placeholderTextColor={C.textMuted}
+                style={{ backgroundColor: C.bgInput, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15, color: C.text, borderWidth: 1, borderColor: C.border }}
               />
-              {/* Color swatches */}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                 {PRESET_COLORS.map((c) => (
                   <TouchableOpacity
                     key={c}
                     onPress={() => setColor(c)}
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
+                      width: 28, height: 28, borderRadius: 14,
                       backgroundColor: c,
                       borderWidth: color === c ? 3 : 0,
-                      borderColor: '#0f172a',
+                      borderColor: C.textDim,
                     }}
                   />
                 ))}
               </View>
-              {/* Actions */}
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
                 <TouchableOpacity
                   onPress={() => { setAdding(false); setName(''); }}
-                  style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#f1f5f9', alignItems: 'center' }}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: C.borderLight, alignItems: 'center' }}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#64748b' }}>Cancel</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: C.textSecondary }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleAdd}
-                  style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#0ea5e9', alignItems: 'center' }}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: C.primary, alignItems: 'center' }}
                 >
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#fff' }}>Add</Text>
                 </TouchableOpacity>
@@ -327,55 +363,52 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
+
         {/* ── Preferences ───────────────────────────────────── */}
         <Text style={[sectionLabel, { marginTop: 24 }]}>Preferences</Text>
         <View style={card}>
-          {/* Haptics toggle */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Haptic feedback</Text>
-              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Vibration on task completion</Text>
+              <Text style={{ fontSize: 15, color: C.text, fontWeight: '500' }}>Haptic feedback</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Vibration on task completion</Text>
             </View>
             <Switch
               value={hapticsEnabled}
               onValueChange={setHapticsEnabled}
-              trackColor={{ false: '#e2e8f0', true: '#bae6fd' }}
-              thumbColor={hapticsEnabled ? '#0ea5e9' : '#cbd5e1'}
+              trackColor={{ false: C.border, true: C.primaryLight }}
+              thumbColor={hapticsEnabled ? C.primary : C.textDisabled}
             />
           </View>
-          {/* Streak bonus */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, ...rowBorder }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Streak bonus</Text>
-              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>+10/20/30% pts on 3/7/14-day streaks</Text>
+              <Text style={{ fontSize: 15, color: C.text, fontWeight: '500' }}>Streak bonus</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>+10/20/30% pts on 3/7/14-day streaks</Text>
             </View>
             <Switch
               value={streakBonusEnabled}
               onValueChange={setStreakBonusEnabled}
-              trackColor={{ false: '#e2e8f0', true: '#bae6fd' }}
-              thumbColor={streakBonusEnabled ? '#0ea5e9' : '#cbd5e1'}
+              trackColor={{ false: C.border, true: C.primaryLight }}
+              thumbColor={streakBonusEnabled ? C.primary : C.textDisabled}
             />
           </View>
-
-          {/* Default point value */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, ...rowBorder }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Default points</Text>
-              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Pre-filled value when creating tasks</Text>
+              <Text style={{ fontSize: 15, color: C.text, fontWeight: '500' }}>Default points</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Pre-filled value when creating tasks</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity
                 onPress={() => setDefaultPointValue(Math.max(1, defaultPointValue - 5))}
-                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.borderLight, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text style={{ fontSize: 18, color: '#64748b' }}>−</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary }}>−</Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1e293b', minWidth: 28, textAlign: 'center' }}>{defaultPointValue}</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, minWidth: 28, textAlign: 'center' }}>{defaultPointValue}</Text>
               <TouchableOpacity
                 onPress={() => setDefaultPointValue(Math.min(100, defaultPointValue + 5))}
-                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.borderLight, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text style={{ fontSize: 18, color: '#64748b' }}>+</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary }}>+</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -389,20 +422,20 @@ export default function SettingsScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>Export data</Text>
-              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Save all tasks, goals, and history as JSON</Text>
+              <Text style={{ fontSize: 15, color: C.text, fontWeight: '500' }}>Export data</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Save all tasks, goals, and history as JSON</Text>
             </View>
-            <Text style={{ fontSize: 18, color: '#94a3b8' }}>↑</Text>
+            <Text style={{ fontSize: 18, color: C.textMuted }}>↑</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleReset}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 0.5, borderTopColor: '#f1f5f9' }}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, ...rowBorder }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: '#ef4444', fontWeight: '500' }}>Reset all data</Text>
-              <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Permanently erase everything</Text>
+              <Text style={{ fontSize: 15, color: C.danger, fontWeight: '500' }}>Reset all data</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Permanently erase everything</Text>
             </View>
-            <Text style={{ fontSize: 18, color: '#fca5a5' }}>×</Text>
+            <Text style={{ fontSize: 18, color: C.dangerLight }}>×</Text>
           </TouchableOpacity>
         </View>
 
@@ -410,46 +443,12 @@ export default function SettingsScreen() {
         <Text style={[sectionLabel, { marginTop: 24 }]}>About</Text>
         <View style={card}>
           <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
-            <Text style={{ fontSize: 15, color: '#1e293b', fontWeight: '500' }}>quests4life</Text>
-            <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Version 1.0.0 · Built with Expo + React Native</Text>
-            <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Your data stays on your device.</Text>
+            <Text style={{ fontSize: 15, color: C.text, fontWeight: '500' }}>quests4life</Text>
+            <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4 }}>Version 1.0.0 · Built with Expo + React Native</Text>
+            <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Your data stays on your device.</Text>
           </View>
         </View>
       </ScrollView>
     </Screen>
   );
 }
-
-const sectionLabel: object = {
-  fontSize: 13,
-  fontWeight: '600',
-  color: '#94a3b8',
-  letterSpacing: 0.5,
-  textTransform: 'uppercase',
-  marginBottom: 10,
-};
-
-const card: object = {
-  backgroundColor: '#fff',
-  borderRadius: 16,
-  overflow: 'hidden',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.05,
-  shadowRadius: 4,
-  elevation: 1,
-};
-
-const timeInput: object = {
-  width: 52,
-  backgroundColor: '#f8fafc',
-  borderRadius: 10,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 16,
-  color: '#1e293b',
-  borderWidth: 1,
-  borderColor: '#e2e8f0',
-  textAlign: 'center',
-  fontWeight: '600',
-};

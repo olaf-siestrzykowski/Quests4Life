@@ -18,6 +18,7 @@ import { TaskCard } from '@components/TaskCard';
 import { SkeletonCard } from '@components/SkeletonCard';
 import { deserializeRule, dueDatesInRange } from '@lib/recurrence';
 import { effectivePoints } from '@lib/difficulty';
+import { useColors } from '@lib/colors';
 import type { Task } from '@db/schema';
 
 function buildWeekDays(weekStart: Date): Date[] {
@@ -27,6 +28,8 @@ function buildWeekDays(weekStart: Date): Date[] {
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function TodayScreen() {
+  const C = useColors();
+
   const tasks              = useTaskStore((s) => s.tasks);
   const loading            = useTaskStore((s) => s.loading);
   const completedTodayIds  = useTaskStore((s) => s.completedTodayIds);
@@ -65,7 +68,6 @@ export default function TodayScreen() {
   const todayDate = now;
   const todayStr  = format(todayDate, 'yyyy-MM-dd');
 
-  // Re-derive "today" when the app returns to foreground (handles midnight rollover)
   const appState = useRef(AppState.currentState);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
@@ -73,7 +75,6 @@ export default function TodayScreen() {
         const newToday = startOfDay(new Date());
         setNow((prev) => {
           if (!isSameDay(prev, newToday)) {
-            // Day rolled over — snap selectedDate to new today too
             setSelectedDate((sel) => isSameDay(sel, prev) ? newToday : sel);
             return newToday;
           }
@@ -89,10 +90,8 @@ export default function TodayScreen() {
   const [weekStart, setWeekStart]         = useState(() => startOfWeek(todayDate, { weekStartsOn: 1 }));
   const [calendarMode, setCalendarMode]   = useState<'week' | 'month'>('week');
   const [monthView, setMonthView]         = useState(todayDate);
-  // completions for the selected date (only populated when not today)
   const [historicIds, setHistoricIds]     = useState<Set<string>>(new Set());
 
-  // Snap back to today whenever the tab comes into focus
   useFocusEffect(useCallback(() => {
     const newToday = startOfDay(new Date());
     setNow(newToday);
@@ -104,7 +103,6 @@ export default function TodayScreen() {
   const isToday = isSameDay(selectedDate, todayDate);
   const selectedStr = format(selectedDate, 'yyyy-MM-dd');
 
-  // When selected date changes and it's not today, fetch completions for that date
   useEffect(() => {
     if (isToday) {
       setHistoricIds(new Set());
@@ -115,7 +113,6 @@ export default function TodayScreen() {
 
   const completedIds = isToday ? completedTodayIds : historicIds;
 
-  // Compute set of dates that have at least one task due (for month calendar dots)
   const monthDueDates = useMemo<Set<string>>(() => {
     const from = startOfMonth(monthView);
     const to   = endOfMonth(monthView);
@@ -162,14 +159,11 @@ export default function TodayScreen() {
 
   const handleComplete = useCallback(
     async (task: Task) => {
-      // Completing past/future dates is read-only
       if (!isToday) return;
 
       const alreadyDone = completedTodayIds.has(task.id);
-
       let pts = effectivePoints(task);
 
-      // Streak bonus multiplier (opt-in)
       if (!alreadyDone && streakBonusEnabled) {
         let streak = 0;
         const { subDays: sd, format: fmt } = await import('date-fns');
@@ -190,7 +184,6 @@ export default function TodayScreen() {
         await addPoints(pts, 'task_complete', { taskId: task.id });
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-        // Combo bonus
         comboRef.current += 1;
         const combo = comboRef.current;
         if (combo === 3) {
@@ -204,7 +197,6 @@ export default function TodayScreen() {
           Alert.alert('10 in a row! 🌟', '+25 bonus points!');
         }
 
-        // Goal bonus
         if (task.parentGoalId) {
           const goal = tasks.find((t) => t.id === task.parentGoalId && t.isGoal);
           if (goal && goal.bonusPoints > 0 && !(await wasGoalBonus(goal.id))) {
@@ -218,13 +210,11 @@ export default function TodayScreen() {
           }
         }
 
-        // Check achievements (async, non-blocking)
         try {
           const [totalRows, ledgerRows, bonusRows] = await Promise.all([
             db.select({ c: count() }).from(completions),
             db.select({ s: sum(pointsLedger.delta) }).from(pointsLedger),
             db.select({ c: count() }).from(pointsLedger).where(
-              // @ts-ignore — drizzle eq import available
               (await import('drizzle-orm')).eq(pointsLedger.reason, 'goal_bonus')
             ),
           ]);
@@ -232,7 +222,6 @@ export default function TodayScreen() {
           const lifetimePoints   = Math.max(0, Number(ledgerRows[0]?.s ?? 0));
           const goalBonusCount   = bonusRows[0]?.c ?? 0;
 
-          // Compute streak from completedDates
           let streak = 0;
           const { subDays: sd, format: fmt } = await import('date-fns');
           let cur = new Date();
@@ -266,25 +255,23 @@ export default function TodayScreen() {
   return (
     <Screen edges={['top']}>
       {/* Header */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, backgroundColor: '#f8fafc' }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4, backgroundColor: C.bgPage }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View>
-            <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a' }}>
+            <Text style={{ fontSize: 26, fontWeight: '700', color: C.textDim }}>
               {isToday ? 'Today' : format(selectedDate, 'EEE, MMM d')}
             </Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 1 }}>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>
               {format(selectedDate, 'EEEE, MMMM d, yyyy')}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {/* Compact view toggle */}
             <TouchableOpacity
               onPress={() => setViewMode(viewMode === 'list' ? 'compact' : 'list')}
-              style={{ backgroundColor: viewMode === 'compact' ? '#0ea5e9' : '#e2e8f0', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
+              style={{ backgroundColor: viewMode === 'compact' ? C.primary : C.border, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
             >
-              <Text style={{ fontSize: 13, color: viewMode === 'compact' ? '#fff' : '#64748b' }}>☰</Text>
+              <Text style={{ fontSize: 13, color: viewMode === 'compact' ? '#fff' : C.textSecondary }}>☰</Text>
             </TouchableOpacity>
-            {/* Sort button */}
             <TouchableOpacity
               onPress={() => Alert.alert('Sort tasks', '', [
                 { text: sortMode === 'default' ? '✓ Default' : 'Default', onPress: () => setSortMode('default') },
@@ -293,35 +280,27 @@ export default function TodayScreen() {
                 { text: sortMode === 'category' ? '✓ By category' : 'By category', onPress: () => setSortMode('category') },
                 { text: 'Cancel', style: 'cancel' },
               ])}
-              style={{ backgroundColor: sortMode !== 'default' ? '#0ea5e9' : '#e2e8f0', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
+              style={{ backgroundColor: sortMode !== 'default' ? C.primary : C.border, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
             >
-              <Text style={{ fontSize: 13, color: sortMode !== 'default' ? '#fff' : '#64748b' }}>↕</Text>
+              <Text style={{ fontSize: 13, color: sortMode !== 'default' ? '#fff' : C.textSecondary }}>↕</Text>
             </TouchableOpacity>
-            {/* Calendar mode toggle */}
             <TouchableOpacity
               onPress={() => setCalendarMode((m) => m === 'week' ? 'month' : 'week')}
-              style={{
-                backgroundColor: calendarMode === 'month' ? '#0ea5e9' : '#e2e8f0',
-                borderRadius: 14,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-              }}
+              style={{ backgroundColor: calendarMode === 'month' ? C.primary : C.border, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
             >
-              <Text style={{ fontSize: 13, color: calendarMode === 'month' ? '#fff' : '#64748b' }}>
+              <Text style={{ fontSize: 13, color: calendarMode === 'month' ? '#fff' : C.textSecondary }}>
                 {calendarMode === 'week' ? '⊞' : '▦'}
               </Text>
             </TouchableOpacity>
-            {/* Focus mode button */}
             {isToday && (
               <TouchableOpacity
                 onPress={() => router.push('/focus')}
-                style={{ backgroundColor: '#e2e8f0', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
+                style={{ backgroundColor: C.border, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 }}
               >
-                <Text style={{ fontSize: 13, color: '#64748b' }}>◎</Text>
+                <Text style={{ fontSize: 13, color: C.textSecondary }}>◎</Text>
               </TouchableOpacity>
             )}
-            {/* Points badge */}
-            <View style={{ backgroundColor: '#0ea5e9', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
+            <View style={{ backgroundColor: C.primary, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>⭐ {balance}</Text>
             </View>
           </View>
@@ -329,13 +308,12 @@ export default function TodayScreen() {
       </View>
 
       {/* Calendar: week strip OR month grid */}
-      <View style={{ backgroundColor: '#f8fafc', paddingBottom: 4 }}>
+      <View style={{ backgroundColor: C.bgPage, paddingBottom: 4 }}>
         {calendarMode === 'week' ? (
-          /* ── Week strip ── */
           <View style={{ paddingBottom: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 6 }}>
               <TouchableOpacity onPress={() => setWeekStart((w) => subWeeks(w, 1))} style={{ padding: 6 }}>
-                <Text style={{ fontSize: 18, color: '#64748b' }}>‹</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary }}>‹</Text>
               </TouchableOpacity>
 
               <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
@@ -348,22 +326,20 @@ export default function TodayScreen() {
                       key={dayStr}
                       onPress={() => handleSelectDate(day)}
                       style={{
-                        alignItems: 'center',
-                        paddingVertical: 6,
-                        paddingHorizontal: 6,
+                        alignItems: 'center', paddingVertical: 6, paddingHorizontal: 6,
                         borderRadius: 10,
-                        backgroundColor: isSelected ? '#0ea5e9' : 'transparent',
+                        backgroundColor: isSelected ? C.primary : 'transparent',
                         minWidth: 38,
                       }}
                     >
-                      <Text style={{ fontSize: 10, color: isSelected ? '#bae6fd' : '#94a3b8', fontWeight: '500' }}>
+                      <Text style={{ fontSize: 10, color: isSelected ? C.primaryLight : C.textMuted, fontWeight: '500' }}>
                         {DAY_LABELS[day.getDay()]}
                       </Text>
-                      <Text style={{ fontSize: 16, fontWeight: '700', marginTop: 1, color: isSelected ? '#fff' : isTodayDay ? '#0ea5e9' : '#334155' }}>
+                      <Text style={{ fontSize: 16, fontWeight: '700', marginTop: 1, color: isSelected ? '#fff' : isTodayDay ? C.primary : C.text }}>
                         {format(day, 'd')}
                       </Text>
                       {isTodayDay && !isSelected && (
-                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#0ea5e9', marginTop: 2 }} />
+                        <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, marginTop: 2 }} />
                       )}
                     </TouchableOpacity>
                   );
@@ -371,23 +347,21 @@ export default function TodayScreen() {
               </View>
 
               <TouchableOpacity onPress={() => setWeekStart((w) => addWeeks(w, 1))} style={{ padding: 6 }}>
-                <Text style={{ fontSize: 18, color: '#64748b' }}>›</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary }}>›</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          /* ── Month grid ── */
           <View>
-            {/* Month navigation header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 4 }}>
               <TouchableOpacity onPress={() => setMonthView((m) => subMonths(m, 1))} style={{ padding: 6 }}>
-                <Text style={{ fontSize: 18, color: '#64748b' }}>‹</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary }}>‹</Text>
               </TouchableOpacity>
-              <Text style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#0f172a' }}>
+              <Text style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '700', color: C.textDim }}>
                 {format(monthView, 'MMMM yyyy')}
               </Text>
               <TouchableOpacity onPress={() => setMonthView((m) => addMonths(m, 1))} style={{ padding: 6 }}>
-                <Text style={{ fontSize: 18, color: '#64748b' }}>›</Text>
+                <Text style={{ fontSize: 18, color: C.textSecondary }}>›</Text>
               </TouchableOpacity>
             </View>
             <MonthCalendar
@@ -400,7 +374,6 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {/* Jump to today */}
         {!isToday && (
           <TouchableOpacity
             onPress={() => {
@@ -408,9 +381,9 @@ export default function TodayScreen() {
               setWeekStart(startOfWeek(todayDate, { weekStartsOn: 1 }));
               setMonthView(todayDate);
             }}
-            style={{ alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 4, borderRadius: 12, backgroundColor: '#e0f2fe', marginBottom: 4 }}
+            style={{ alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 4, borderRadius: 12, backgroundColor: C.primaryBg, marginBottom: 4 }}
           >
-            <Text style={{ fontSize: 12, color: '#0ea5e9', fontWeight: '600' }}>Jump to Today</Text>
+            <Text style={{ fontSize: 12, color: C.primary, fontWeight: '600' }}>Jump to Today</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -419,19 +392,19 @@ export default function TodayScreen() {
       {totalCount > 0 && (
         <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-            <Text style={{ fontSize: 12, color: '#64748b', fontWeight: '500' }}>
+            <Text style={{ fontSize: 12, color: C.textSecondary, fontWeight: '500' }}>
               {doneCount} of {totalCount} done
             </Text>
-            <Text style={{ fontSize: 12, color: '#0ea5e9', fontWeight: '600' }}>
+            <Text style={{ fontSize: 12, color: C.primary, fontWeight: '600' }}>
               {Math.round(progress * 100)}%
             </Text>
           </View>
-          <View style={{ height: 5, backgroundColor: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+          <View style={{ height: 5, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' }}>
             <View
               style={{
                 height: '100%',
                 width: `${Math.round(progress * 100)}%`,
-                backgroundColor: progress === 1 ? '#22c55e' : '#0ea5e9',
+                backgroundColor: progress === 1 ? C.success : C.primary,
                 borderRadius: 3,
               }}
             />
@@ -451,10 +424,10 @@ export default function TodayScreen() {
         const emptyComponent = (
           <View style={{ alignItems: 'center', marginTop: 48 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>{isToday ? '🎉' : '📅'}</Text>
-            <Text style={{ fontSize: 16, color: '#64748b', fontWeight: '600' }}>
+            <Text style={{ fontSize: 16, color: C.textSecondary, fontWeight: '600' }}>
               {isToday ? 'Nothing due today' : 'No tasks on this day'}
             </Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>
               {isToday ? 'Add a task to get started' : 'Schedule tasks to see them here'}
             </Text>
           </View>
@@ -467,11 +440,11 @@ export default function TodayScreen() {
             onSwipeLeft={isToday && !completedIds.has(item.id)
               ? () => handleComplete(item)
               : isToday && completedIds.has(item.id)
-                ? () => handleComplete(item)   // uncomplete
+                ? () => handleComplete(item)
                 : undefined}
             onSwipeRight={isToday ? () => handleLongPress(item) : undefined}
-            leftColor="#22c55e"
-            rightColor="#e2e8f0"
+            leftColor={C.success}
+            rightColor={C.border}
             leftLabel="✓"
             rightLabel="···"
           >
@@ -488,7 +461,6 @@ export default function TodayScreen() {
         );
 
         if (sortMode === 'category') {
-          // Grouped SectionList
           const catName = (t: Task) => categories.find((c) => c.id === t.categoryId)?.name ?? 'Uncategorised';
           const sectionMap = new Map<string, Task[]>();
           for (const t of todayTasks) {
@@ -503,11 +475,11 @@ export default function TodayScreen() {
               sections={sections}
               keyExtractor={(t) => t.id}
               contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
               ListEmptyComponent={emptyComponent}
               renderSectionHeader={({ section: { title } }) => (
                 <View style={{ paddingVertical: 6, paddingHorizontal: 2, marginTop: 8, marginBottom: 2 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     {title}
                   </Text>
                 </View>
@@ -526,7 +498,7 @@ export default function TodayScreen() {
             data={todayTasks}
             keyExtractor={(t) => t.id}
             contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0ea5e9" />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
             ListEmptyComponent={emptyComponent}
             renderItem={({ item }) => renderTaskItem(item)}
           />
@@ -536,48 +508,29 @@ export default function TodayScreen() {
       {/* FAB group (only on today) */}
       {isToday && (
         <>
-          {/* Inbox quick-capture */}
           <TouchableOpacity
             onPress={() => router.push('/inbox')}
             style={{
-              position: 'absolute',
-              bottom: 100,
-              right: 24,
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: '#fff',
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.12,
-              shadowRadius: 6,
-              elevation: 4,
-              borderWidth: 1,
-              borderColor: '#e2e8f0',
+              position: 'absolute', bottom: 100, right: 24,
+              width: 44, height: 44, borderRadius: 22,
+              backgroundColor: C.bgCard,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.12, shadowRadius: 6, elevation: 4,
+              borderWidth: 1, borderColor: C.border,
             }}
           >
             <Text style={{ fontSize: 18 }}>📥</Text>
           </TouchableOpacity>
-          {/* New task FAB */}
           <TouchableOpacity
             onPress={() => router.push('/new-task')}
             style={{
-              position: 'absolute',
-              bottom: 32,
-              right: 24,
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: '#0ea5e9',
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#0ea5e9',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.4,
-              shadowRadius: 8,
-              elevation: 6,
+              position: 'absolute', bottom: 32, right: 24,
+              width: 56, height: 56, borderRadius: 28,
+              backgroundColor: C.primary,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
             }}
           >
             <Text style={{ color: '#fff', fontSize: 28, lineHeight: 32 }}>+</Text>

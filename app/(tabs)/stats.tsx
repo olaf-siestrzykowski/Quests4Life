@@ -8,6 +8,8 @@ import { ACHIEVEMENT_DEFS } from '@store/achievementsStore';
 import { db } from '@db/index';
 import { completions, tasks, pointsLedger } from '@db/schema';
 import { gte, lte, eq, and } from 'drizzle-orm';
+import { useColors } from '@lib/colors';
+import type { AppColors } from '@lib/colors';
 import type { Task } from '@db/schema';
 
 const REASON_LABEL: Record<string, string> = {
@@ -46,8 +48,7 @@ function trendLabel(curr: number, prev: number): { text: string; color: string }
   return { text: `${pct > 0 ? '+' : ''}${pct}%`, color: pct >= 0 ? '#22c55e' : '#ef4444' };
 }
 
-/** Bar chart using pure Views — no external chart lib needed. */
-function BarChart({ data, color = '#0ea5e9' }: { data: { label: string; value: number }[]; color?: string }) {
+function BarChart({ data, color = '#0ea5e9', C }: { data: { label: string; value: number }[]; color?: string; C: AppColors }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 80 }}>
@@ -57,19 +58,18 @@ function BarChart({ data, color = '#0ea5e9' }: { data: { label: string; value: n
             style={{
               width: '100%',
               height: Math.max(2, Math.round((item.value / max) * 64)),
-              backgroundColor: item.value > 0 ? color : '#e2e8f0',
+              backgroundColor: item.value > 0 ? color : C.border,
               borderRadius: 3,
             }}
           />
-          <Text style={{ fontSize: 8, color: '#94a3b8' }}>{item.label}</Text>
+          <Text style={{ fontSize: 8, color: C.textMuted }}>{item.label}</Text>
         </View>
       ))}
     </View>
   );
 }
 
-/** 30-day streak calendar grid. */
-function StreakCalendar({ completedDates }: { completedDates: Set<string> }) {
+function StreakCalendar({ completedDates, C }: { completedDates: Set<string>; C: AppColors }) {
   const today = new Date();
   const days = Array.from({ length: 30 }, (_, i) => {
     const d = subDays(today, 29 - i);
@@ -86,12 +86,10 @@ function StreakCalendar({ completedDates }: { completedDates: Set<string> }) {
           <View
             key={date}
             style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              backgroundColor: done ? '#22c55e' : '#e2e8f0',
+              width: 24, height: 24, borderRadius: 6,
+              backgroundColor: done ? C.success : C.border,
               borderWidth: isToday ? 2 : 0,
-              borderColor: '#0ea5e9',
+              borderColor: C.primary,
             }}
           />
         );
@@ -103,6 +101,8 @@ function StreakCalendar({ completedDates }: { completedDates: Set<string> }) {
 interface CategoryStat { name: string; color: string; points: number }
 
 export default function StatsScreen() {
+  const C = useColors();
+
   const history              = usePointsStore((s) => s.history);
   const balance              = usePointsStore((s) => s.balance);
   const storeTasks           = useTaskStore((s) => s.tasks);
@@ -115,41 +115,32 @@ export default function StatsScreen() {
   const [pointsPerDay, setPointsPerDay]     = useState<{ label: string; value: number }[]>([]);
   const [byDow, setByDow]                   = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
 
-  // Month / week stats
   const [thisMonthTasks, setThisMonthTasks] = useState(0);
   const [lastMonthTasks, setLastMonthTasks] = useState(0);
   const [thisWeekTasks, setThisWeekTasks]   = useState(0);
   const [lastWeekTasks, setLastWeekTasks]   = useState(0);
 
-  // Points this / last week
   const [thisWeekPts, setThisWeekPts]   = useState(0);
   const [lastWeekPts, setLastWeekPts]   = useState(0);
 
-  // Personal bests
   const [bestDayPts, setBestDayPts]         = useState(0);
   const [bestDayTaskCount, setBestDayTaskCount] = useState(0);
 
-  // Category breakdown
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
 
   useEffect(() => {
     (async () => {
       const today = new Date();
-      const todayStr = format(today, 'yyyy-MM-dd');
-
-      // All completions
       const rows = await db.select().from(completions);
       const dates = new Set(rows.map((r) => r.forDate));
       setCompletedDates(dates);
       setStreak(calcStreak(dates));
       setTotalCompleted(rows.length);
 
-      // Day-of-week breakdown
       const dow = [0, 0, 0, 0, 0, 0, 0];
       for (const r of rows) { dow[getDay(parseISO(r.forDate))]++; }
       setByDow(dow);
 
-      // This month / last month
       const mFrom  = format(startOfMonth(today), 'yyyy-MM-dd');
       const mTo    = format(endOfMonth(today), 'yyyy-MM-dd');
       const lmFrom = format(startOfMonth(subMonths(today, 1)), 'yyyy-MM-dd');
@@ -162,7 +153,6 @@ export default function StatsScreen() {
       setThisMonthTasks(thisMonthRows.length);
       setLastMonthTasks(lastMonthRows.length);
 
-      // This week / last week
       const wFrom  = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
       const wTo    = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
       const lwFrom = format(startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -175,19 +165,16 @@ export default function StatsScreen() {
       setThisWeekTasks(thisWeekRows.length);
       setLastWeekTasks(lastWeekRows.length);
 
-      // Personal bests — best day tasks and best day pts
       const tasksByDate = new Map<string, number>();
       for (const r of rows) tasksByDate.set(r.forDate, (tasksByDate.get(r.forDate) ?? 0) + 1);
       let bestCount = 0;
-      for (const count of tasksByDate.values()) if (count > bestCount) bestCount = count;
+      for (const c of tasksByDate.values()) if (c > bestCount) bestCount = c;
       setBestDayTaskCount(bestCount);
 
-      // Category breakdown — join completions → tasks → categories (last 30 days)
       const thirtyAgo = format(subDays(today, 29), 'yyyy-MM-dd');
       const recentCompletions = rows.filter((r) => r.forDate >= thirtyAgo);
-      const completedTaskIds = [...new Set(recentCompletions.map((r) => r.taskId))];
 
-      if (completedTaskIds.length > 0) {
+      if (recentCompletions.length > 0) {
         const allTasks = storeTasks;
         const catMap = new Map<string, { name: string; color: string; points: number }>();
 
@@ -196,12 +183,11 @@ export default function StatsScreen() {
           if (!task) continue;
           const catId = task.categoryId ?? '__none__';
           if (!catMap.has(catId)) {
-            catMap.set(catId, { name: catId === '__none__' ? 'Uncategorised' : 'Unknown', color: '#cbd5e1', points: 0 });
+            catMap.set(catId, { name: catId === '__none__' ? 'Uncategorised' : 'Unknown', color: C.textDisabled, points: 0 });
           }
           catMap.get(catId)!.points += task.pointValue;
         }
 
-        // Enrich with category names/colors from store
         const { useCategoryStore } = await import('@store/index');
         const cats = useCategoryStore.getState().categories;
         for (const cat of cats) {
@@ -217,7 +203,6 @@ export default function StatsScreen() {
     })();
   }, [storeTasks]);
 
-  // Points per day — last 14 days (from ledger)
   useEffect(() => {
     const today = new Date();
     const days = Array.from({ length: 14 }, (_, i) => {
@@ -267,16 +252,15 @@ export default function StatsScreen() {
   const weekTaskTrend = trendLabel(thisWeekTasks, lastWeekTasks);
   const weekPtsTrend  = trendLabel(thisWeekPts, lastWeekPts);
 
-  // Goal stats
-  const activeGoals    = storeTasks.filter((t) => t.isGoal && !t.archivedAt).length;
-  const activeTasks    = storeTasks.filter((t) => !t.isGoal && !t.archivedAt).length;
+  const activeGoals = storeTasks.filter((t) => t.isGoal && !t.archivedAt).length;
+  const activeTasks = storeTasks.filter((t) => !t.isGoal && !t.archivedAt).length;
 
   const StatPill = ({
     label, value, color, trend,
   }: { label: string; value: string | number; color: string; trend?: { text: string; color: string } | null }) => (
-    <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
+    <View style={{ flex: 1, backgroundColor: C.bgCard, borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
       <Text style={{ fontSize: 20, fontWeight: '700', color }}>{value}</Text>
-      <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, textAlign: 'center' }}>{label}</Text>
+      <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2, textAlign: 'center' }}>{label}</Text>
       {trend && (
         <Text style={{ fontSize: 10, fontWeight: '700', color: trend.color, marginTop: 3 }}>{trend.text}</Text>
       )}
@@ -284,8 +268,8 @@ export default function StatsScreen() {
   );
 
   const ChartCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View style={{ marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
-      <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748b', marginBottom: 14, letterSpacing: 0.4, textTransform: 'uppercase' }}>{title}</Text>
+    <View style={{ marginHorizontal: 20, backgroundColor: C.bgCard, borderRadius: 18, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
+      <Text style={{ fontSize: 13, fontWeight: '700', color: C.textSecondary, marginBottom: 14, letterSpacing: 0.4, textTransform: 'uppercase' }}>{title}</Text>
       {children}
     </View>
   );
@@ -293,25 +277,23 @@ export default function StatsScreen() {
   return (
     <Screen edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <View>
-            <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a' }}>Stats</Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 1 }}>Your progress over time</Text>
+            <Text style={{ fontSize: 26, fontWeight: '700', color: C.textDim }}>Stats</Text>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 1 }}>Your progress over time</Text>
           </View>
           <TouchableOpacity
             onPress={() => router.push('/weekly-review')}
-            style={{ backgroundColor: '#f0f9ff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: '#bae6fd', marginTop: 4 }}
+            style={{ backgroundColor: C.primaryBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: C.primaryLight, marginTop: 4 }}
           >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#0369a1' }}>Weekly Review →</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: C.primaryDark }}>Weekly Review →</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Achievements banner */}
         {unlocked.length > 0 && (
           <TouchableOpacity
             onPress={() => router.push('/achievements')}
-            style={{ marginHorizontal: 20, marginBottom: 12, backgroundColor: '#fef9c3', borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#fde68a' }}
+            style={{ marginHorizontal: 20, marginBottom: 12, backgroundColor: C.warningLight, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: C.warningDark }}
           >
             <View style={{ flexDirection: 'row', gap: 2 }}>
               {unlocked.slice(0, 5).map((a) => {
@@ -319,20 +301,20 @@ export default function StatsScreen() {
                 return <Text key={a.key} style={{ fontSize: 20 }}>{def?.emoji ?? '🏅'}</Text>;
               })}
               {unlocked.length > 5 && (
-                <Text style={{ fontSize: 14, color: '#92400e', fontWeight: '700', marginLeft: 4, alignSelf: 'center' }}>+{unlocked.length - 5}</Text>
+                <Text style={{ fontSize: 14, color: C.warningDark, fontWeight: '700', marginLeft: 4, alignSelf: 'center' }}>+{unlocked.length - 5}</Text>
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#78350f' }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: C.text }}>
                 {unlocked.length} / {ACHIEVEMENT_DEFS.length} achievements
               </Text>
             </View>
-            <Text style={{ fontSize: 13, color: '#92400e' }}>→</Text>
+            <Text style={{ fontSize: 13, color: C.textSecondary }}>→</Text>
           </TouchableOpacity>
         )}
 
-        {/* Balance card */}
-        <View style={{ marginHorizontal: 20, borderRadius: 20, overflow: 'hidden', backgroundColor: '#0ea5e9', padding: 24, alignItems: 'center', marginBottom: 12 }}>
+        {/* Balance card — always blue, never themed */}
+        <View style={{ marginHorizontal: 20, borderRadius: 20, overflow: 'hidden', backgroundColor: C.primary, padding: 24, alignItems: 'center', marginBottom: 12 }}>
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' }}>Current Balance</Text>
           <Text style={{ color: '#fff', fontSize: 52, fontWeight: '800', marginTop: 4, lineHeight: 60 }}>
             ⭐ {balance}
@@ -349,19 +331,19 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        {/* This month summary card */}
-        <View style={{ marginHorizontal: 20, backgroundColor: '#f0f9ff', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#bae6fd' }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+        {/* This month summary */}
+        <View style={{ marginHorizontal: 20, backgroundColor: C.primaryBg, borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: C.primaryLight }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: C.primaryDark, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
             {format(new Date(), 'MMMM')}
           </Text>
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <View>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#0ea5e9' }}>{thisMonthTasks}</Text>
-              <Text style={{ fontSize: 11, color: '#64748b' }}>tasks done</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: C.primary }}>{thisMonthTasks}</Text>
+              <Text style={{ fontSize: 11, color: C.textSecondary }}>tasks done</Text>
             </View>
             <View>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#f59e0b' }}>{streak}🔥</Text>
-              <Text style={{ fontSize: 11, color: '#64748b' }}>day streak</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: C.warning }}>{streak}🔥</Text>
+              <Text style={{ fontSize: 11, color: C.textSecondary }}>day streak</Text>
             </View>
             {lastMonthTasks > 0 && (
               <View style={{ justifyContent: 'center' }}>
@@ -375,66 +357,49 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        {/* Stat pills — week view */}
+        {/* Stat pills */}
         <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 20, marginBottom: 20 }}>
-          <StatPill label="This week tasks" value={thisWeekTasks} color="#0ea5e9" trend={weekTaskTrend} />
-          <StatPill label="This week pts" value={`+${thisWeekPts}`} color="#22c55e" trend={weekPtsTrend} />
-          <StatPill label="All tasks done" value={totalCompleted} color="#8b5cf6" />
+          <StatPill label="This week tasks" value={thisWeekTasks} color={C.primary} trend={weekTaskTrend} />
+          <StatPill label="This week pts" value={`+${thisWeekPts}`} color={C.success} trend={weekPtsTrend} />
+          <StatPill label="All tasks done" value={totalCompleted} color={C.purple} />
         </View>
 
-        {/* Active counts row */}
+        {/* Active counts */}
         <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 20, marginBottom: 20 }}>
-          <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: '#0f172a' }}>{activeTasks}</Text>
-            <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>active tasks</Text>
+          <View style={{ flex: 1, backgroundColor: C.bgCard, borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: C.textDim }}>{activeTasks}</Text>
+            <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>active tasks</Text>
           </View>
-          <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: '#f59e0b' }}>{activeGoals}</Text>
-            <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>active goals</Text>
+          <View style={{ flex: 1, backgroundColor: C.bgCard, borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: C.warning }}>{activeGoals}</Text>
+            <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>active goals</Text>
           </View>
         </View>
 
         {/* Goals at a glance */}
         {(() => {
-          const activeGoals = storeTasks.filter((t) => t.isGoal && !t.archivedAt);
-          if (activeGoals.length === 0) return null;
-
+          const activeGoalsList = storeTasks.filter((t) => t.isGoal && !t.archivedAt);
+          if (activeGoalsList.length === 0) return null;
           return (
             <ChartCard title="Goals — today's progress">
-              {activeGoals.map((goal) => {
+              {activeGoalsList.map((goal) => {
                 const children = storeTasks.filter((t) => t.parentGoalId === goal.id && !t.archivedAt);
                 const doneToday = children.filter((t) => completedTodayIds.has(t.id)).length;
                 const total = children.length;
                 const progress = total > 0 ? doneToday / total : 0;
                 const isComplete = total > 0 && doneToday === total;
-
                 return (
-                  <TouchableOpacity
-                    key={goal.id}
-                    onPress={() => router.push(`/goal/${goal.id}`)}
-                    style={{ marginBottom: 14 }}
-                  >
+                  <TouchableOpacity key={goal.id} onPress={() => router.push(`/goal/${goal.id}`)} style={{ marginBottom: 14 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                      <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: isComplete ? '#22c55e' : '#1e293b' }}>
+                      <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: isComplete ? C.success : C.text }}>
                         {isComplete ? '✓ ' : ''}{goal.title}
                       </Text>
-                      <Text style={{ fontSize: 11, color: '#94a3b8' }}>
-                        {doneToday}/{total}
-                      </Text>
+                      <Text style={{ fontSize: 11, color: C.textMuted }}>{doneToday}/{total}</Text>
                     </View>
-                    <View style={{ height: 5, backgroundColor: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
-                      <View
-                        style={{
-                          height: '100%',
-                          width: `${Math.round(progress * 100)}%`,
-                          backgroundColor: isComplete ? '#22c55e' : '#0ea5e9',
-                          borderRadius: 3,
-                        }}
-                      />
+                    <View style={{ height: 5, backgroundColor: C.borderLight, borderRadius: 3, overflow: 'hidden' }}>
+                      <View style={{ height: '100%', width: `${Math.round(progress * 100)}%`, backgroundColor: isComplete ? C.success : C.primary, borderRadius: 3 }} />
                     </View>
-                    {total === 0 && (
-                      <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>No child tasks</Text>
-                    )}
+                    {total === 0 && <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>No child tasks</Text>}
                   </TouchableOpacity>
                 );
               })}
@@ -446,17 +411,17 @@ export default function StatsScreen() {
         {(bestDayPts > 0 || bestDayTaskCount > 0) && (
           <ChartCard title="Personal Bests">
             <View style={{ flexDirection: 'row', gap: 16 }}>
-              <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: '#fef9c3', borderRadius: 12 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: '#ca8a04' }}>+{bestDayPts}</Text>
-                <Text style={{ fontSize: 11, color: '#92400e', marginTop: 2, textAlign: 'center' }}>Best day (points)</Text>
+              <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: C.warningLight, borderRadius: 12 }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: C.warningDark }}>+{bestDayPts}</Text>
+                <Text style={{ fontSize: 11, color: C.textSecondary, marginTop: 2, textAlign: 'center' }}>Best day (points)</Text>
               </View>
-              <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: '#f0fdf4', borderRadius: 12 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: '#16a34a' }}>{bestDayTaskCount}</Text>
-                <Text style={{ fontSize: 11, color: '#166534', marginTop: 2, textAlign: 'center' }}>Most tasks in a day</Text>
+              <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: C.successLight, borderRadius: 12 }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: C.successDark }}>{bestDayTaskCount}</Text>
+                <Text style={{ fontSize: 11, color: C.textSecondary, marginTop: 2, textAlign: 'center' }}>Most tasks in a day</Text>
               </View>
-              <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: '#fff7ed', borderRadius: 12 }}>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: '#ea580c' }}>{streak}🔥</Text>
-                <Text style={{ fontSize: 11, color: '#9a3412', marginTop: 2, textAlign: 'center' }}>Current streak</Text>
+              <View style={{ flex: 1, alignItems: 'center', padding: 12, backgroundColor: C.borderLight, borderRadius: 12 }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: C.warning }}>{streak}🔥</Text>
+                <Text style={{ fontSize: 11, color: C.textSecondary, marginTop: 2, textAlign: 'center' }}>Current streak</Text>
               </View>
             </View>
           </ChartCard>
@@ -473,11 +438,11 @@ export default function StatsScreen() {
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: cat.color }} />
-                      <Text style={{ fontSize: 13, color: '#1e293b', fontWeight: '500' }}>{cat.name}</Text>
+                      <Text style={{ fontSize: 13, color: C.text, fontWeight: '500' }}>{cat.name}</Text>
                     </View>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#0ea5e9' }}>+{cat.points}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: C.primary }}>+{cat.points}</Text>
                   </View>
-                  <View style={{ height: 6, backgroundColor: '#f1f5f9', borderRadius: 3 }}>
+                  <View style={{ height: 6, backgroundColor: C.borderLight, borderRadius: 3 }}>
                     <View style={{ height: 6, width: `${width}%`, backgroundColor: cat.color, borderRadius: 3 }} />
                   </View>
                 </View>
@@ -486,32 +451,29 @@ export default function StatsScreen() {
           </ChartCard>
         )}
 
-        {/* Points per day — 14-day bar chart */}
         {pointsPerDay.some((d) => d.value > 0) && (
           <ChartCard title="Points earned — last 14 days">
-            <BarChart data={pointsPerDay} color="#0ea5e9" />
+            <BarChart data={pointsPerDay} color={C.primary} C={C} />
           </ChartCard>
         )}
 
-        {/* Completions by day of week */}
         {totalCompleted > 0 && (
           <ChartCard title="Completions by day of week">
-            <BarChart data={dowData} color="#8b5cf6" />
+            <BarChart data={DOW_LABELS.map((label, i) => ({ label, value: byDow[i] }))} color={C.purple} C={C} />
           </ChartCard>
         )}
 
-        {/* 30-day streak calendar */}
         {totalCompleted > 0 && (
           <ChartCard title="Last 30 days">
-            <StreakCalendar completedDates={completedDates} />
+            <StreakCalendar completedDates={completedDates} C={C} />
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#22c55e' }} />
-                <Text style={{ fontSize: 11, color: '#64748b' }}>Had completions</Text>
+                <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: C.success }} />
+                <Text style={{ fontSize: 11, color: C.textSecondary }}>Had completions</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#e2e8f0' }} />
-                <Text style={{ fontSize: 11, color: '#64748b' }}>No completions</Text>
+                <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: C.border }} />
+                <Text style={{ fontSize: 11, color: C.textSecondary }}>No completions</Text>
               </View>
             </View>
           </ChartCard>
@@ -521,45 +483,39 @@ export default function StatsScreen() {
         {groups.length === 0 ? (
           <View style={{ alignItems: 'center', marginTop: 40 }}>
             <Text style={{ fontSize: 36, marginBottom: 10 }}>📊</Text>
-            <Text style={{ fontSize: 16, color: '#64748b', fontWeight: '600' }}>No history yet</Text>
-            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Complete tasks to start earning points</Text>
+            <Text style={{ fontSize: 16, color: C.textSecondary, fontWeight: '600' }}>No history yet</Text>
+            <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 4 }}>Complete tasks to start earning points</Text>
           </View>
         ) : (
           <View style={{ paddingHorizontal: 20 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#94a3b8', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
               Recent Activity
             </Text>
             {groups.map((group) => (
               <View key={group.date} style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748b', marginBottom: 6 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary, marginBottom: 6 }}>
                   {format(parseISO(group.date), 'EEEE, MMMM d')}
                 </Text>
-                <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
+                <View style={{ backgroundColor: C.bgCard, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
                   {group.entries.map((entry, idx) => (
                     <View
                       key={entry.id}
                       style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
+                        flexDirection: 'row', alignItems: 'center',
+                        paddingHorizontal: 16, paddingVertical: 12,
                         borderTopWidth: idx === 0 ? 0 : 0.5,
-                        borderTopColor: '#f1f5f9',
+                        borderTopColor: C.borderLight,
                       }}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, color: '#1e293b', fontWeight: '500' }}>
+                        <Text style={{ fontSize: 14, color: C.text, fontWeight: '500' }}>
                           {REASON_LABEL[entry.reason] ?? entry.reason}
                         </Text>
-                        <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>
+                        <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>
                           {(entry.createdAt ?? '').slice(11, 16)}
                         </Text>
                       </View>
-                      <Text style={{
-                        fontSize: 15,
-                        fontWeight: '700',
-                        color: entry.delta >= 0 ? '#22c55e' : '#ef4444',
-                      }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: entry.delta >= 0 ? C.success : C.danger }}>
                         {entry.delta >= 0 ? '+' : ''}{entry.delta}
                       </Text>
                     </View>

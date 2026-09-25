@@ -4,24 +4,23 @@ import { router } from 'expo-router';
 import { Screen } from '@components/Screen';
 import { useTaskStore, useSettingsStore } from '@store/index';
 import { format } from 'date-fns';
+import { useColors } from '@lib/colors';
 
 /**
  * Inbox — quick-capture screen (GTD-inspired).
  * Tasks created here use a 'once' rule for today and no category.
- * They show up on the Today screen and can be promoted to recurring tasks
- * from the task detail screen.
  */
 export default function InboxScreen() {
+  const C = useColors();
   const tasks          = useTaskStore((s) => s.tasks);
   const addTask        = useTaskStore((s) => s.addTask);
   const archiveTask    = useTaskStore((s) => s.archiveTask);
   const defaultPts     = useSettingsStore((s) => s.defaultPointValue);
 
-  const [title, setTitle]     = useState('');
-  const [notes, setNotes]     = useState('');
-  const [saving, setSaving]   = useState(false);
+  const [title, setTitle]   = useState('');
+  const [notes, setNotes]   = useState('');
+  const [saving, setSaving] = useState(false);
 
-  // "Inbox" tasks: standalone, scheduleRule = once for today, no category
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const inboxTasks = tasks.filter(
     (t) => !t.isGoal && !t.archivedAt && !t.parentGoalId && t.scheduleRule.includes('"type":"once"') && t.scheduleRule.includes(todayStr),
@@ -53,33 +52,33 @@ export default function InboxScreen() {
     ]);
   };
 
+  const inputStyle = {
+    backgroundColor: C.bgCard,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: C.text,
+    borderWidth: 1,
+    borderColor: C.border,
+  };
+
   return (
-    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
-      {/* Nav bar */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
+    <Screen edges={['top', 'bottom']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: C.borderLight }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ fontSize: 16, color: '#0ea5e9' }}>Done</Text>
+          <Text style={{ fontSize: 16, color: C.primary }}>Done</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 17, fontWeight: '600', color: '#0f172a' }}>Inbox</Text>
+        <Text style={{ fontSize: 17, fontWeight: '600', color: C.textDim }}>Inbox</Text>
         <View style={{ width: 44 }} />
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        {/* Quick input */}
-        <View style={{ padding: 16, backgroundColor: '#f8fafc', borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
+        <View style={{ padding: 16, backgroundColor: C.bgPage, borderBottomWidth: 0.5, borderBottomColor: C.borderLight }}>
           <TextInput
-            style={{
-              backgroundColor: '#fff',
-              borderRadius: 12,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              fontSize: 16,
-              color: '#1e293b',
-              borderWidth: 1,
-              borderColor: '#e2e8f0',
-            }}
+            style={inputStyle}
             placeholder="Capture a task..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             value={title}
             onChangeText={setTitle}
             autoFocus
@@ -87,22 +86,9 @@ export default function InboxScreen() {
             onSubmitEditing={handleAdd}
           />
           <TextInput
-            style={{
-              backgroundColor: '#fff',
-              borderRadius: 12,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              fontSize: 14,
-              color: '#64748b',
-              borderWidth: 1,
-              borderColor: '#e2e8f0',
-              marginTop: 8,
-              height: 52,
-              textAlignVertical: 'top',
-              paddingTop: 10,
-            }}
+            style={[inputStyle, { fontSize: 14, color: C.textSecondary, marginTop: 8, height: 52, textAlignVertical: 'top', paddingTop: 10 }]}
             placeholder="Notes (optional)"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -112,19 +98,18 @@ export default function InboxScreen() {
             disabled={!title.trim() || saving}
             style={{
               marginTop: 10,
-              backgroundColor: title.trim() ? '#0ea5e9' : '#e2e8f0',
+              backgroundColor: title.trim() ? C.primary : C.border,
               borderRadius: 12,
               paddingVertical: 12,
               alignItems: 'center',
             }}
           >
-            <Text style={{ fontSize: 15, fontWeight: '600', color: title.trim() ? '#fff' : '#94a3b8' }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: title.trim() ? '#fff' : C.textMuted }}>
               Add to inbox
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Inbox list */}
         <FlatList
           data={inboxTasks}
           keyExtractor={(t) => t.id}
@@ -132,15 +117,15 @@ export default function InboxScreen() {
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 48 }}>
               <Text style={{ fontSize: 32, marginBottom: 8 }}>📥</Text>
-              <Text style={{ fontSize: 15, color: '#64748b', fontWeight: '600' }}>Inbox is empty</Text>
-              <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4, textAlign: 'center' }}>
+              <Text style={{ fontSize: 15, color: C.textSecondary, fontWeight: '600' }}>Inbox is empty</Text>
+              <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 4, textAlign: 'center' }}>
                 Capture tasks quickly — no schedule needed.{'\n'}They show up on Today and you can promote them later.
               </Text>
             </View>
           }
           renderItem={({ item }) => (
             <View style={{
-              backgroundColor: '#fff',
+              backgroundColor: C.bgCard,
               borderRadius: 14,
               padding: 14,
               flexDirection: 'row',
@@ -151,18 +136,20 @@ export default function InboxScreen() {
               shadowOpacity: 0.05,
               shadowRadius: 3,
               elevation: 1,
+              borderWidth: 1,
+              borderColor: C.borderLight,
             }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: '#1e293b' }}>{item.title}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: C.text }}>{item.title}</Text>
                 {item.description && (
-                  <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }} numberOfLines={1}>{item.description}</Text>
+                  <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }} numberOfLines={1}>{item.description}</Text>
                 )}
               </View>
               <TouchableOpacity onPress={() => router.push(`/task/${item.id}`)}>
-                <Text style={{ fontSize: 13, color: '#0ea5e9', fontWeight: '500' }}>Edit</Text>
+                <Text style={{ fontSize: 13, color: C.primary, fontWeight: '500' }}>Edit</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDelete(item.id, item.title)} hitSlop={8}>
-                <Text style={{ fontSize: 18, color: '#cbd5e1' }}>×</Text>
+                <Text style={{ fontSize: 18, color: C.textDisabled }}>×</Text>
               </TouchableOpacity>
             </View>
           )}

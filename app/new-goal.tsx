@@ -9,10 +9,12 @@ import { CategoryPicker } from '@components/CategoryPicker';
 import type { ScheduleRule } from '@lib/recurrence';
 import { serializeRule } from '@lib/recurrence';
 import { GOAL_TEMPLATES } from '@lib/goalTemplates';
+import { useColors } from '@lib/colors';
 
 const BONUS_PRESETS = [25, 50, 100, 200, 500];
 
 export default function NewGoalScreen() {
+  const C = useColors();
   const addTask = useTaskStore((s) => s.addTask);
   const today   = format(new Date(), 'yyyy-MM-dd');
   const [showTemplates, setShowTemplates] = useState(false);
@@ -21,11 +23,7 @@ export default function NewGoalScreen() {
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [bonusPoints, setBonusPoints] = useState(100);
-  const [rule, setRule]             = useState<ScheduleRule>({
-    type: 'monthly',
-    dayOfMonth: 1,
-    startDate: today,
-  });
+  const [rule, setRule]             = useState<ScheduleRule>({ type: 'monthly', dayOfMonth: 1, startDate: today });
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -74,23 +72,24 @@ export default function NewGoalScreen() {
     router.back();
   };
 
+  const label = { fontSize: 11, fontWeight: '700' as const, color: C.textMuted, textTransform: 'uppercase' as const, letterSpacing: 0.6, marginBottom: 8 };
+  const input = { backgroundColor: C.bgInput, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.text, borderWidth: 1, borderColor: C.borderLight };
+
   return (
-    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
-      {/* Nav bar */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9' }}>
+    <Screen edges={['top', 'bottom']}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: C.borderLight }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ fontSize: 16, color: '#0ea5e9' }}>Cancel</Text>
+          <Text style={{ fontSize: 16, color: C.primary }}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 17, fontWeight: '600', color: '#0f172a' }}>New Goal</Text>
+        <Text style={{ fontSize: 17, fontWeight: '600', color: C.textDim }}>New Goal</Text>
         <TouchableOpacity onPress={handleSubmit}>
-          <Text style={{ fontSize: 16, color: '#0ea5e9', fontWeight: '600' }}>Add</Text>
+          <Text style={{ fontSize: 16, color: C.primary, fontWeight: '600' }}>Add</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Template picker */}
       <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
         <TouchableOpacity onPress={() => setShowTemplates((v) => !v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-          <Text style={{ fontSize: 13, color: '#0ea5e9', fontWeight: '600' }}>
+          <Text style={{ fontSize: 13, color: C.primary, fontWeight: '600' }}>
             {showTemplates ? 'Hide templates ▲' : 'Use a template ▼'}
           </Text>
         </TouchableOpacity>
@@ -100,9 +99,9 @@ export default function NewGoalScreen() {
               <TouchableOpacity
                 key={tpl.id}
                 onPress={() => handleUseTemplate(tpl.id)}
-                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f9ff', borderWidth: 1, borderColor: '#bae6fd' }}
+                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: C.primaryBg, borderWidth: 1, borderColor: C.primaryLight }}
               >
-                <Text style={{ fontSize: 13, color: '#0369a1', fontWeight: '600' }}>{tpl.emoji} {tpl.label}</Text>
+                <Text style={{ fontSize: 13, color: C.primaryDark, fontWeight: '600' }}>{tpl.emoji} {tpl.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -116,11 +115,11 @@ export default function NewGoalScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View>
-          <Text style={styles.label}>Goal</Text>
+          <Text style={label}>Goal</Text>
           <TextInput
-            style={styles.input}
+            style={input}
             placeholder="What do you want to achieve?"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             value={title}
             onChangeText={setTitle}
             autoFocus
@@ -128,11 +127,11 @@ export default function NewGoalScreen() {
         </View>
 
         <View>
-          <Text style={styles.label}>Why it matters (optional)</Text>
+          <Text style={label}>Why it matters (optional)</Text>
           <TextInput
-            style={[styles.input, { height: 72, textAlignVertical: 'top', paddingTop: 12 }]}
+            style={[input, { height: 72, textAlignVertical: 'top', paddingTop: 12 }]}
             placeholder="Describe your motivation..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={C.textMuted}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -140,21 +139,21 @@ export default function NewGoalScreen() {
         </View>
 
         <View>
-          <Text style={styles.label}>Category</Text>
+          <Text style={label}>Category</Text>
           <CategoryPicker value={categoryId} onChange={setCategoryId} />
         </View>
 
         <View>
-          <Text style={styles.label}>Cycle</Text>
-          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>
+          <Text style={label}>Cycle</Text>
+          <Text style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>
             How often does this goal reset?
           </Text>
           <ScheduleRulePicker value={rule} onChange={setRule} />
         </View>
 
         <View>
-          <Text style={styles.label}>Completion Bonus</Text>
-          <Text style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
+          <Text style={label}>Completion Bonus</Text>
+          <Text style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
             Bonus points when all tasks in this goal are done.
           </Text>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -165,15 +164,12 @@ export default function NewGoalScreen() {
                   key={pts}
                   onPress={() => setBonusPoints(pts)}
                   style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    backgroundColor: active ? '#f59e0b' : '#fff',
-                    borderColor: active ? '#f59e0b' : '#e2e8f0',
+                    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                    backgroundColor: active ? C.warning : C.bgCard,
+                    borderColor: active ? C.warning : C.border,
                   }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : '#475569' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : C.textSecondary }}>
                     ⭐ {pts}
                   </Text>
                 </TouchableOpacity>
@@ -186,24 +182,3 @@ export default function NewGoalScreen() {
     </Screen>
   );
 }
-
-const styles = {
-  label: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: '#94a3b8',
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-};

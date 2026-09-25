@@ -7,8 +7,10 @@ import { useTaskStore, usePointsStore } from '@store/index';
 import * as Haptics from '@lib/haptics';
 import { deserializeRule, dueDatesInRange, formatRuleSummary } from '@lib/recurrence';
 import { effectivePoints } from '@lib/difficulty';
+import { useColors } from '@lib/colors';
 
 export default function FocusScreen() {
+  const C = useColors();
   const tasks             = useTaskStore((s) => s.tasks);
   const completedTodayIds = useTaskStore((s) => s.completedTodayIds);
   const completeTask      = useTaskStore((s) => s.completeTask);
@@ -46,7 +48,6 @@ export default function FocusScreen() {
     await addPoints(pts, 'task_complete', { taskId: current.id });
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Goal bonus
     if (current.parentGoalId) {
       const goal = tasks.find((t) => t.id === current.parentGoalId && t.isGoal);
       if (goal && goal.bonusPoints > 0 && !(await wasGoalBonus(goal.id))) {
@@ -70,7 +71,7 @@ export default function FocusScreen() {
 
   if (!current) {
     return (
-      <Screen edges={['top', 'bottom']} backgroundColor="#0ea5e9">
+      <Screen edges={['top', 'bottom']} style={{ backgroundColor: C.primary }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <Text style={{ fontSize: 64, marginBottom: 16 }}>🎉</Text>
           <Text style={{ fontSize: 28, fontWeight: '800', color: '#fff', textAlign: 'center' }}>
@@ -94,85 +95,80 @@ export default function FocusScreen() {
   try { scheduleSummary = formatRuleSummary(deserializeRule(current.scheduleRule)); } catch {}
 
   return (
-    <Screen edges={['top', 'bottom']} backgroundColor="#ffffff">
-      {/* Header */}
+    <Screen edges={['top', 'bottom']}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={{ fontSize: 16, color: '#0ea5e9' }}>✕ Exit</Text>
+          <Text style={{ fontSize: 16, color: C.primary }}>✕ Exit</Text>
         </TouchableOpacity>
-        <Text style={{ flex: 1, textAlign: 'center', fontSize: 14, color: '#64748b', fontWeight: '600' }}>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 14, color: C.textSecondary, fontWeight: '600' }}>
           Focus Mode
         </Text>
-        <Text style={{ fontSize: 14, color: '#94a3b8' }}>{done}/{total}</Text>
+        <Text style={{ fontSize: 14, color: C.textMuted }}>{done}/{total}</Text>
       </View>
 
-      {/* Progress bar */}
-      <View style={{ marginHorizontal: 20, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, marginBottom: 32 }}>
-        <View style={{ height: 4, width: `${progressPct}%`, backgroundColor: '#0ea5e9', borderRadius: 2 }} />
+      <View style={{ marginHorizontal: 20, height: 4, backgroundColor: C.border, borderRadius: 2, marginBottom: 32 }}>
+        <View style={{ height: 4, width: `${progressPct}%`, backgroundColor: C.primary, borderRadius: 2 }} />
       </View>
 
-      {/* Task card */}
       <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center' }}>
         <View style={{
-          backgroundColor: '#fff',
+          backgroundColor: C.bgCard,
           borderRadius: 24,
           padding: 28,
-          shadowColor: '#0ea5e9',
+          shadowColor: C.primary,
           shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.15,
           shadowRadius: 20,
           elevation: 8,
           borderWidth: 1,
-          borderColor: '#e0f2fe',
+          borderColor: C.primaryLight,
         }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>
             Task {done + 1} of {total}
           </Text>
-          <Text style={{ fontSize: 26, fontWeight: '700', color: '#0f172a', lineHeight: 34, marginBottom: 12 }}>
+          <Text style={{ fontSize: 26, fontWeight: '700', color: C.textDim, lineHeight: 34, marginBottom: 12 }}>
             {current.title}
           </Text>
           {current.description && (
-            <Text style={{ fontSize: 15, color: '#64748b', lineHeight: 22, marginBottom: 16 }}>
+            <Text style={{ fontSize: 15, color: C.textSecondary, lineHeight: 22, marginBottom: 16 }}>
               {current.description}
             </Text>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={{ backgroundColor: '#f0f9ff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0ea5e9' }}>
+            <View style={{ backgroundColor: C.primaryBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: C.primary }}>
                 ⭐ +{effectivePoints(current)}
               </Text>
             </View>
             {scheduleSummary && (
-              <Text style={{ fontSize: 12, color: '#94a3b8' }}>{scheduleSummary}</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted }}>{scheduleSummary}</Text>
             )}
           </View>
         </View>
 
-        {/* Remaining tasks hint */}
         {remaining.length > 1 && (
           <View style={{ marginTop: 20, alignItems: 'center' }}>
             {remaining.slice(1, 3).map((t) => (
-              <Text key={t.id} style={{ fontSize: 13, color: '#cbd5e1', marginBottom: 4 }}>
+              <Text key={t.id} style={{ fontSize: 13, color: C.textDisabled, marginBottom: 4 }}>
                 {t.title}
               </Text>
             ))}
             {remaining.length > 3 && (
-              <Text style={{ fontSize: 12, color: '#e2e8f0' }}>+{remaining.length - 3} more</Text>
+              <Text style={{ fontSize: 12, color: C.border }}>{remaining.length - 3} more</Text>
             )}
           </View>
         )}
       </View>
 
-      {/* Action buttons */}
       <View style={{ padding: 24, gap: 12 }}>
         <TouchableOpacity
           onPress={handleDone}
           style={{
-            backgroundColor: '#0ea5e9',
+            backgroundColor: C.primary,
             borderRadius: 18,
             paddingVertical: 18,
             alignItems: 'center',
-            shadowColor: '#0ea5e9',
+            shadowColor: C.primary,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.4,
             shadowRadius: 8,
@@ -181,11 +177,8 @@ export default function FocusScreen() {
         >
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff' }}>✓ Done</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleSkip}
-          style={{ paddingVertical: 14, alignItems: 'center' }}
-        >
-          <Text style={{ fontSize: 15, color: '#94a3b8' }}>Skip →</Text>
+        <TouchableOpacity onPress={handleSkip} style={{ paddingVertical: 14, alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, color: C.textMuted }}>Skip →</Text>
         </TouchableOpacity>
       </View>
     </Screen>
