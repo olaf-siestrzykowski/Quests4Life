@@ -37,7 +37,7 @@ export const lightColors = {
   overlay:       'rgba(0,0,0,0.4)',
 } as const;
 
-export const darkColors = {
+export const darkColors: AppColors = {
   primary:       '#0ea5e9',
   primaryLight:  '#0369a1',
   primaryDark:   '#7dd3fc',
@@ -76,7 +76,9 @@ export const darkColors = {
 // Kept for backward compatibility (light palette)
 export const Colors = lightColors;
 export type ColorKey = keyof typeof lightColors;
-export type AppColors = typeof lightColors;
+// Widened to string so light and dark palettes share one type (`as const` alone
+// would make each hex a distinct literal type).
+export type AppColors = { readonly [K in ColorKey]: string };
 
 export function useColors(): AppColors {
   const scheme = useColorScheme();

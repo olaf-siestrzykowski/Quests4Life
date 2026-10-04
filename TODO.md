@@ -25,12 +25,8 @@
 
 ## Bugs
 
-### B5. Pre-existing typecheck errors from dark mode (a2b5b19)
-- `src/lib/colors.ts:85` — `darkColors` typed as `typeof lightColors`, but `as const` makes every hex a literal type. Type palettes as `Record<ColorKey, string>` (or drop `as const`).
-- `app/goal/[id].tsx:64-65` — same root cause.
-
-### B6. `npm run lint` broken
-- ESLint 9 is installed but config is `.eslintrc.json`; needs migration to `eslint.config.js` (flat config).
+### Lint warnings cleanup
+- 33 warnings from `npm run lint` (0 errors): mostly unused imports, a few `any`, 1 `exhaustive-deps` in `SkeletonCard.tsx`
 
 ### B3. Goals screen — archived count / empty state
 - "0 active goals" should also surface the archived count with a "show archived" link.
@@ -243,3 +239,5 @@ For each new feature: exercise the happy path + at least one edge case.
 - TODO.md cleanup (verified against code)
 - Rewards expansion: progress bars, persisted sort (affordable / cheapest / priciest / newest), "Next unlock" hint, edit screen `app/reward/[id].tsx` + `rewardsStore.updateReward`, long-press Edit/Remove, Shop/History tabs with redemption history (archived reward names kept via `archivedRewards`)
 - 11 rewardsStore tests
+- B5: palette typing fixed (`AppColors` widened to string) — `npm run typecheck` clean
+- B6: ESLint 9 flat config (`eslint.config.js`), empty `catch {}` allowed — `npm run lint` passes
