@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 type SortMode = 'default' | 'points_desc' | 'alpha' | 'category';
 type ViewMode = 'list' | 'compact';
 export type ThemeMode = 'system' | 'light' | 'dark';
+export type RewardSort = 'affordable' | 'cheapest' | 'priciest' | 'newest';
 
 interface SettingsStore {
   notificationsEnabled: boolean;
@@ -17,6 +18,7 @@ interface SettingsStore {
   sortMode: SortMode;
   viewMode: ViewMode;
   themeMode: ThemeMode;
+  rewardSort: RewardSort;
   load: () => Promise<void>;
   setNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setNotificationTime: (hour: number, minute: number) => Promise<void>;
@@ -26,6 +28,7 @@ interface SettingsStore {
   setSortMode: (v: SortMode) => Promise<void>;
   setViewMode: (v: ViewMode) => Promise<void>;
   setThemeMode: (v: ThemeMode) => Promise<void>;
+  setRewardSort: (v: RewardSort) => Promise<void>;
 }
 
 async function upsertSetting(key: string, value: string) {
@@ -45,6 +48,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   sortMode: 'default',
   viewMode: 'list',
   themeMode: 'system',
+  rewardSort: 'affordable',
 
   load: async () => {
     const rows = await db.select().from(appSettings);
@@ -60,6 +64,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       sortMode: (map['sort_mode'] ?? 'default') as SortMode,
       viewMode: (map['view_mode'] ?? 'list') as ViewMode,
       themeMode: (map['theme_mode'] ?? 'system') as ThemeMode,
+      rewardSort: (map['reward_sort'] ?? 'affordable') as RewardSort,
     });
   },
 
@@ -104,5 +109,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setThemeMode: async (v) => {
     await upsertSetting('theme_mode', v);
     set({ themeMode: v });
+  },
+
+  setRewardSort: async (v) => {
+    await upsertSetting('reward_sort', v);
+    set({ rewardSort: v });
   },
 }));

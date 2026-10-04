@@ -115,6 +115,7 @@ function AppShell() {
         <Stack.Screen name="new-reward" options={{ presentation: 'modal' }} />
         <Stack.Screen name="task/[id]"  options={{ presentation: 'modal' }} />
         <Stack.Screen name="goal/[id]"       options={{ presentation: 'modal' }} />
+        <Stack.Screen name="reward/[id]"     options={{ presentation: 'modal' }} />
         <Stack.Screen name="achievements"    options={{ presentation: 'modal' }} />
         <Stack.Screen name="focus"           options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="inbox"           options={{ presentation: 'modal' }} />

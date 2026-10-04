@@ -40,9 +40,12 @@ export const usePointsStore = create<PointsStore>((set, get) => ({
       rewardId: meta.rewardId,
     };
     await db.insert(pointsLedger).values(entry);
+    // Mirror SQLite's datetime('now') default (UTC, 'YYYY-MM-DD HH:MM:SS') so
+    // freshly added entries have a timestamp before the next load().
+    const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
     set((s) => ({
       balance: s.balance + delta,
-      history: [...s.history, entry as PointEntry],
+      history: [...s.history, { ...entry, createdAt } as PointEntry],
     }));
   },
 
